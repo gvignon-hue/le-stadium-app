@@ -25,13 +25,13 @@ const PRESETS = [
 ];
 
 const EMP_PALETTE = [
-  { bg: "bg-emerald-600", text: "text-emerald-700" },
-  { bg: "bg-sky-600", text: "text-sky-700" },
   { bg: "bg-orange-500", text: "text-orange-700" },
+  { bg: "bg-yellow-500", text: "text-yellow-700" },
+  { bg: "bg-red-400", text: "text-red-700" },
+  { bg: "bg-blue-600", text: "text-blue-700" },
+  { bg: "bg-green-600", text: "text-green-700" },
   { bg: "bg-violet-600", text: "text-violet-700" },
-  { bg: "bg-rose-500", text: "text-rose-700" },
   { bg: "bg-slate-500", text: "text-slate-700" },
-  { bg: "bg-amber-600", text: "text-amber-700" },
   { bg: "bg-teal-600", text: "text-teal-700" },
   { bg: "bg-fuchsia-600", text: "text-fuchsia-700" },
   { bg: "bg-lime-600", text: "text-lime-700" },
