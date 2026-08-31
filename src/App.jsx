@@ -2668,12 +2668,13 @@ function ImportPlanningSection({ employees, oswald }) {
 
     const buffer = await file.arrayBuffer();
     const rows = rowsFromWorkbook(buffer);
-    const header = (rows[0] || []).map((h) => h.toLowerCase());
+    const normalize = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const header = (rows[0] || []).map((h) => normalize(h));
     const idx = {
       date: header.findIndex((h) => h.startsWith("date")),
       employee: header.findIndex((h) => h.startsWith("employ")),
-      start: header.findIndex((h) => h.startsWith("d")),
-      end: header.findIndex((h) => h.startsWith("f")),
+      start: header.findIndex((h) => h.startsWith("debut")),
+      end: header.findIndex((h) => h.startsWith("fin")),
       comment: header.findIndex((h) => h.startsWith("comm")),
     };
 
