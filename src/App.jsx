@@ -331,6 +331,11 @@ const EVENT_ENTRIES_SEED = [
   { id: "evtseed-69", date: "2026-12-29", kind: "tournoi", subtype: "fft", level: "P100", comment: "" },
 ];
 
+function hasAssignee(item, name) {
+  const list = item.assignees || (item.assignee ? [item.assignee] : []);
+  return list.includes(name) || list.includes("Tout le monde");
+}
+
 function summarizeEntry(e) {
   if (e.kind === "anniversaire") {
     const name = [e.firstName, e.lastName].filter(Boolean).join(" ");
@@ -498,6 +503,7 @@ export default function App() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [now, setNow] = useState(new Date());
   const [actions, setActions] = useState([]);
+  const [managerActions, setManagerActions] = useState([]);
   const [projects, setProjects] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [markers, setMarkers] = useState([]);
@@ -549,6 +555,7 @@ export default function App() {
       }
       setActions(a);
     })();
+    storageGet("manager-actions-list", []).then(setManagerActions);
     storageGet("projects-list", []).then(setProjects);
     (async () => {
       let e = await storageGet("employees:v2", null);
@@ -596,6 +603,11 @@ export default function App() {
   const saveActions = useCallback(async (next) => {
     setActions(next);
     await storageSet("actions-list", next);
+  }, []);
+
+  const saveManagerActions = useCallback(async (next) => {
+    setManagerActions(next);
+    await storageSet("manager-actions-list", next);
   }, []);
 
   const saveProjects = useCallback(async (next) => {
@@ -735,15 +747,19 @@ export default function App() {
         )}
 
         {profile && (
-          <AppBody profile={profile} isManager={isManager} activeTab={activeTab} setActiveTab={setActiveTab} oswald={oswald} actions={actions} saveActions={saveActions} projects={projects} saveProjects={saveProjects} employees={employees} saveEmployees={saveEmployees} markers={markers} saveMarkers={saveMarkers} stockProducts={stockProducts} saveStockProducts={saveStockProducts} stockChecked={stockChecked} saveStockChecked={saveStockChecked} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} saveEventGroups={saveEventGroups} />
+          <AppBody profile={profile} isManager={isManager} activeTab={activeTab} setActiveTab={setActiveTab} oswald={oswald} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} projects={projects} saveProjects={saveProjects} employees={employees} saveEmployees={saveEmployees} markers={markers} saveMarkers={saveMarkers} stockProducts={stockProducts} saveStockProducts={saveStockProducts} stockChecked={stockChecked} saveStockChecked={saveStockChecked} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} saveEventGroups={saveEventGroups} />
         )}
       </main>
     </div>
   );
 }
 
-function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, eventEntries, saveEventEntries, eventGroups, saveEventGroups }) {
-  const pendingActions = actions.filter((a) => !a.done && (a.assignee === profile.name || a.assignee === "Tout le monde")).length;
+function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, managerActions, saveManagerActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, eventEntries, saveEventEntries, eventGroups, saveEventGroups }) {
+  const todayISO = isoDate(new Date());
+  const pendingOwnActions = actions.filter((a) => !a.done && hasAssignee(a, profile.name)).length;
+  const pendingManagerActions = isManager ? managerActions.filter((a) => !a.done && hasAssignee(a, profile.name)).length : 0;
+  const overdueProjects = projects.filter((p) => p.dueDate && p.status !== "termine" && p.dueDate < todayISO && hasAssignee(p, profile.name)).length;
+  const pendingActions = pendingOwnActions + pendingManagerActions + overdueProjects;
   const tabs = [
     { key: "planning", label: "Planning" },
     { key: "evenement", label: "Événement" },
@@ -782,7 +798,7 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
       {activeTab === "evenement" && <EvenementTab profile={profile} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} oswald={oswald} />}
       {activeTab === "ouverture" && <ChecklistTab type="ouverture" title="Process ouverture" seed={OUVERTURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
       {activeTab === "fermeture" && <ChecklistTab type="fermeture" title="Process fermeture" seed={FERMETURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
-      {activeTab === "todo" && <TodoTab profile={profile} actions={actions} saveActions={saveActions} projects={projects} saveProjects={saveProjects} employees={employees} oswald={oswald} />}
+      {activeTab === "todo" && <TodoTab profile={profile} isManager={isManager} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} projects={projects} saveProjects={saveProjects} employees={employees} oswald={oswald} />}
       {activeTab === "stock" && <StockTab products={stockProducts} saveProducts={saveStockProducts} checked={stockChecked} saveChecked={saveStockChecked} oswald={oswald} />}
       {activeTab === "cp" && isManager && <CPTab markers={markers} employees={employees} oswald={oswald} />}
       {activeTab === "historique" && isManager && <HistoriqueTab oswald={oswald} />}
@@ -1501,30 +1517,41 @@ function EvenementTab({ profile, eventEntries, saveEventEntries, eventGroups, os
           if (upcoming.length === 0) {
             return <div className="text-center text-slate-400 py-6 text-sm">Aucun évènement à venir.</div>;
           }
-          const byDate = [];
+          const byWeek = [];
           upcoming.forEach((e) => {
-            const last = byDate[byDate.length - 1];
-            if (!last || last.date !== e.date) byDate.push({ date: e.date, items: [e] });
-            else last.items.push(e);
+            const wk = isoDate(mondayOf(new Date(e.date + "T00:00:00")));
+            let group = byWeek[byWeek.length - 1];
+            if (!group || group.week !== wk) {
+              group = { week: wk, items: [] };
+              byWeek.push(group);
+            }
+            group.items.push(e);
           });
-          return byDate.map((group) => (
-            <div key={group.date} className="bg-white rounded-xl border border-slate-200 mb-3 overflow-hidden">
-              <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 font-bold text-slate-700 text-sm capitalize">
-                {fmtDayLabel(new Date(group.date + "T00:00:00"))}
+          return byWeek.map((group) => {
+            const weekStartDate = new Date(group.week + "T00:00:00");
+            const weekEndDate = addDays(weekStartDate, 6);
+            return (
+              <div key={group.week} className="bg-white rounded-xl border border-slate-200 mb-3 overflow-hidden">
+                <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 font-bold text-slate-700 text-sm">
+                  Semaine du {fmtShort(weekStartDate)} au {fmtShort(weekEndDate)}
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {group.items.map((e) => (
+                    <button
+                      key={e.id}
+                      onClick={() => setModal({ mode: "edit", ...e })}
+                      className="w-full text-left px-3 py-2 flex items-start gap-2 hover:bg-slate-50"
+                    >
+                      <span className="text-xs font-bold text-slate-400 w-9 shrink-0">
+                        {DAY_SHORT[(new Date(e.date + "T00:00:00").getDay() + 6) % 7]}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-700 flex-1">{summarizeEntry(e)}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="divide-y divide-slate-100">
-                {group.items.map((e) => (
-                  <button
-                    key={e.id}
-                    onClick={() => setModal({ mode: "edit", ...e })}
-                    className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    {summarizeEntry(e)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ));
+            );
+          });
         })()}
       </div>
 
@@ -2107,7 +2134,7 @@ function ActionsSection({ profile, actions, saveActions, allNames, personFilter,
   const [modal, setModal] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
 
-  const filtered = personFilter === "all" ? actions : actions.filter((a) => a.assignee === personFilter);
+  const filtered = personFilter === "all" ? actions : actions.filter((a) => hasAssignee(a, personFilter));
 
   const todo = filtered
     .filter((a) => !a.done)
@@ -2137,9 +2164,9 @@ function ActionsSection({ profile, actions, saveActions, allNames, personFilter,
     let next;
     if (modal.mode === "add") {
       const id = "act-" + Date.now();
-      next = [...actions, { id, text: data.text, date: data.date, assignee: data.assignee, priority: data.priority, comment: data.comment, freq: "", done: false, doneBy: null, doneTs: null, createdBy: profile.name, createdTs: Date.now() }];
+      next = [...actions, { id, text: data.text, date: data.date, assignees: data.assignees, priority: data.priority, comment: data.comment, freq: "", done: false, doneBy: null, doneTs: null, createdBy: profile.name, createdTs: Date.now() }];
     } else {
-      next = actions.map((a) => (a.id === modal.id ? { ...a, text: data.text, date: data.date, assignee: data.assignee, priority: data.priority, comment: data.comment } : a));
+      next = actions.map((a) => (a.id === modal.id ? { ...a, text: data.text, date: data.date, assignees: data.assignees, priority: data.priority, comment: data.comment } : a));
     }
     await saveActions(next);
     setModal(null);
@@ -2154,7 +2181,7 @@ function ActionsSection({ profile, actions, saveActions, allNames, personFilter,
       <div className="flex items-center justify-between mb-3">
         <div className="font-bold text-emerald-900" style={oswald}>{title || "Actions"}</div>
         <button
-          onClick={() => setModal({ mode: "add", id: null, text: "", date: "", assignee: "Tout le monde", priority: "moyenne", comment: "" })}
+          onClick={() => setModal({ mode: "add", id: null, text: "", date: "", assignees: ["Tout le monde"], priority: "moyenne", comment: "" })}
           className="text-xs font-semibold text-white bg-emerald-600 rounded-lg px-3 py-1.5 flex items-center gap-1"
         >
           <Plus size={14} /> Nouvelle action
@@ -2205,7 +2232,9 @@ function ActionRow({ action, onToggle, onEdit, oswald }) {
           {overdue && <span className="text-xs bg-rose-600 text-white font-bold rounded px-1.5 py-0.5">En retard</span>}
           {prio && <span className={"text-xs font-bold rounded px-1.5 py-0.5 " + prio.bg + " " + prio.text}>{prio.label}</span>}
           {action.date && <span className={"text-xs rounded px-1.5 py-0.5 " + (overdue ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500")}>{new Date(action.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>}
-          {action.assignee && <span className="text-xs bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5">{action.assignee}</span>}
+          {(action.assignees || (action.assignee ? [action.assignee] : [])).map((n) => (
+            <span key={n} className="text-xs bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5">{n}</span>
+          ))}
           {action.freq && <span className="text-xs bg-amber-50 text-amber-700 rounded px-1.5 py-0.5">{action.freq}</span>}
           {action.done && <span className="text-xs text-slate-400">fait par {action.doneBy} le {new Date(action.doneTs).toLocaleDateString("fr-FR")}</span>}
         </div>
@@ -2219,19 +2248,24 @@ function ActionRow({ action, onToggle, onEdit, oswald }) {
 function ActionModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
   const [text, setText] = useState(modal.text);
   const [date, setDate] = useState(modal.date || "");
-  const [assignee, setAssignee] = useState(modal.assignee || "Tout le monde");
+  const [assignees, setAssignees] = useState(modal.assignees || (modal.assignee ? [modal.assignee] : ["Tout le monde"]));
   const [priority, setPriority] = useState(modal.priority || "moyenne");
   const [comment, setComment] = useState(modal.comment || "");
   const [error, setError] = useState("");
 
+  function toggleAssignee(n) {
+    setAssignees((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]));
+  }
+
   function submit() {
     if (!text.trim()) { setError("Le texte de l'action est requis."); return; }
-    onSave({ text: text.trim(), date, assignee, priority, comment });
+    if (assignees.length === 0) { setError("Sélectionnez au moins une personne."); return; }
+    onSave({ text: text.trim(), date, assignees, priority, comment });
   }
 
   return (
     <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(15, 23, 42, 0.5)", zIndex: 50 }} onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full p-5" style={{ maxWidth: "420px" }} onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl w-full p-5 overflow-y-auto" style={{ maxWidth: "420px", maxHeight: "88vh" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold text-emerald-900" style={oswald}>{modal.mode === "add" ? "Nouvelle action" : "Modifier l'action"}</div>
           <button onClick={onClose} className="text-slate-400"><X size={20} /></button>
@@ -2240,18 +2274,19 @@ function ActionModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
         <label className="text-xs font-semibold text-slate-500 mb-1 block">Action</label>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3" placeholder="Ex: Recommander des verres" />
 
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div>
-            <label className="text-xs font-semibold text-slate-500 mb-1 block">Date</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-500 mb-1 block">Assigné à</label>
-            <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm">
-              <option value="Tout le monde">Tout le monde</option>
-              {allNames.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </div>
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Date</label>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm mb-3" />
+
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Assigné à (plusieurs possibles)</label>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          <button onClick={() => toggleAssignee("Tout le monde")} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (assignees.includes("Tout le monde") ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
+            Tout le monde
+          </button>
+          {allNames.map((n) => (
+            <button key={n} onClick={() => toggleAssignee(n)} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (assignees.includes(n) ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
+              {n}
+            </button>
+          ))}
         </div>
 
         <label className="text-xs font-semibold text-slate-500 mb-1 block">Priorité</label>
