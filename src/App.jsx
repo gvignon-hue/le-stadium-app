@@ -350,6 +350,13 @@ function summarizeEntry(e) {
   return (e.category || "Évènement") + ": " + (e.comment || "");
 }
 
+const PRIORITIES = [
+  { key: "haute", label: "Haute", bg: "bg-rose-100", text: "text-rose-700" },
+  { key: "moyenne", label: "Moyenne", bg: "bg-amber-100", text: "text-amber-700" },
+  { key: "faible", label: "Faible", bg: "bg-slate-100", text: "text-slate-500" },
+];
+const PRIORITY_RANK = { haute: 0, moyenne: 1, faible: 2 };
+
 const ACTIONS_SEED = [
   { id: "a1", text: "Passer l'autolaveuse", freq: "Tous les dimanches" },
   { id: "a2", text: "Aspirateur squash & badminton", freq: "Mercredi, une semaine sur 2" },
@@ -468,6 +475,15 @@ async function storageDeleteByPrefix(prefix) {
     await supabase.from("app_storage").delete().like("key", prefix + "%");
   } catch (e) {
     // best effort
+  }
+}
+async function storageListByPrefix(prefix) {
+  try {
+    const { data, error } = await supabase.from("app_storage").select("key, value").like("key", prefix + "%");
+    if (error || !data) return [];
+    return data;
+  } catch (e) {
+    return [];
   }
 }
 
@@ -727,7 +743,7 @@ export default function App() {
 }
 
 function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, eventEntries, saveEventEntries, eventGroups, saveEventGroups }) {
-  const pendingActions = actions.filter((a) => !a.done).length;
+  const pendingActions = actions.filter((a) => !a.done && (a.assignee === profile.name || a.assignee === "Tout le monde")).length;
   const tabs = [
     { key: "planning", label: "Planning" },
     { key: "evenement", label: "Événement" },
@@ -738,6 +754,7 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
   ];
   if (isManager) {
     tabs.push({ key: "cp", label: "CP" });
+    tabs.push({ key: "historique", label: "Historique" });
     tabs.push({ key: "reglages", label: "Réglages" });
   }
 
@@ -768,6 +785,7 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
       {activeTab === "todo" && <TodoTab profile={profile} actions={actions} saveActions={saveActions} projects={projects} saveProjects={saveProjects} employees={employees} oswald={oswald} />}
       {activeTab === "stock" && <StockTab products={stockProducts} saveProducts={saveStockProducts} checked={stockChecked} saveChecked={saveStockChecked} oswald={oswald} />}
       {activeTab === "cp" && isManager && <CPTab markers={markers} employees={employees} oswald={oswald} />}
+      {activeTab === "historique" && isManager && <HistoriqueTab oswald={oswald} />}
       {activeTab === "reglages" && isManager && <SettingsTab employees={employees} saveEmployees={saveEmployees} eventGroups={eventGroups} saveEventGroups={saveEventGroups} saveActions={saveActions} saveEventEntries={saveEventEntries} oswald={oswald} />}
     </div>
   );
@@ -783,6 +801,7 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
   const [modal, setModal] = useState(null);
   const [viewSlot, setViewSlot] = useState(null);
   const [view, setView] = useState("detail");
+  const [weekPickerOpen, setWeekPickerOpen] = useState(false);
 
   const weekKey = isoDate(weekStart);
 
@@ -883,11 +902,31 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
         <button onClick={() => changeWeek(-1)} className="p-2 rounded-lg bg-white shadow-sm border border-slate-200 text-slate-600">
           <ChevronLeft size={18} />
         </button>
-        <div className="text-center">
-          <div className="font-bold text-emerald-900" style={oswald}>
+        <div className="text-center relative">
+          <button onClick={() => setWeekPickerOpen((o) => !o)} className="font-bold text-emerald-900" style={{ ...oswald, textDecoration: "underline", textDecorationStyle: "dotted" }}>
             Semaine du {fmtShort(weekStart)} au {fmtShort(weekEnd)}
+          </button>
+          <div>
+            <button onClick={goToday} className="text-xs text-amber-600 font-semibold">Revenir à aujourd'hui</button>
           </div>
-          <button onClick={goToday} className="text-xs text-amber-600 font-semibold">Revenir à aujourd'hui</button>
+          {weekPickerOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setWeekPickerOpen(false)} />
+              <div className="absolute mt-2 z-50 bg-white rounded-lg shadow-lg border border-slate-200 p-3" style={{ left: "50%", transform: "translateX(-50%)" }}>
+                <input
+                  type="date"
+                  autoFocus
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setWeekStart(mondayOf(new Date(e.target.value + "T00:00:00")));
+                      setWeekPickerOpen(false);
+                    }
+                  }}
+                  className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
+                />
+              </div>
+            </>
+          )}
         </div>
         <button onClick={() => changeWeek(1)} className="p-2 rounded-lg bg-white shadow-sm border border-slate-200 text-slate-600">
           <ChevronRight size={18} />
@@ -1289,6 +1328,7 @@ function EvenementTab({ profile, eventEntries, saveEventEntries, eventGroups, os
   const [monthStart, setMonthStart] = useState(startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [modal, setModal] = useState(null);
+  const [search, setSearch] = useState("");
 
   function changeMonth(delta) {
     setMonthStart((m) => {
@@ -1336,14 +1376,47 @@ function EvenementTab({ profile, eventEntries, saveEventEntries, eventGroups, os
     allWeeks.push(gridDays.slice(i, i + 7));
   }
   const todayISO = isoDate(new Date());
-  const weeks = allWeeks.filter((week) => isoDate(week[6]) >= todayISO);
 
   const selectedISO = isoDate(selectedDate);
   const dayEntries = eventEntries.filter((e) => e.date === selectedISO);
   const monthLabel = monthStart.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
+  const searchResults = search.trim()
+    ? eventEntries
+        .filter((e) => summarizeEntry(e).toLowerCase().includes(search.trim().toLowerCase()))
+        .sort((a, b) => b.date.localeCompare(a.date))
+    : null;
+
   return (
     <div>
+      <div className="relative mb-3">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Rechercher un évènement..."
+          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+        />
+      </div>
+
+      {searchResults ? (
+        <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+          {searchResults.length === 0 ? (
+            <div className="text-center text-slate-400 py-6 text-sm">Aucun résultat.</div>
+          ) : (
+            searchResults.map((e) => (
+              <button
+                key={e.id}
+                onClick={() => setModal({ mode: "edit", ...e })}
+                className="w-full text-left px-3 py-2.5 hover:bg-slate-50"
+              >
+                <div className="text-xs text-slate-400 mb-0.5 capitalize">{fmtDayLabel(new Date(e.date + "T00:00:00"))}</div>
+                <div className="text-sm font-semibold text-slate-700">{summarizeEntry(e)}</div>
+              </button>
+            ))
+          )}
+        </div>
+      ) : (
+        <>
       <div className="flex items-center justify-between mb-3">
         <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg bg-white shadow-sm border border-slate-200 text-slate-600">
           <ChevronLeft size={18} />
@@ -1421,12 +1494,49 @@ function EvenementTab({ profile, eventEntries, saveEventEntries, eventGroups, os
         </div>
       </div>
 
-      {modal && <EventModal modal={modal} eventGroups={eventGroups} onClose={() => setModal(null)} onSave={handleSave} onDelete={handleDelete} oswald={oswald} />}
+      <div className="mt-5">
+        <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">À venir</div>
+        {(() => {
+          const upcoming = eventEntries.filter((e) => e.date >= todayISO).sort((a, b) => a.date.localeCompare(b.date));
+          if (upcoming.length === 0) {
+            return <div className="text-center text-slate-400 py-6 text-sm">Aucun évènement à venir.</div>;
+          }
+          const byDate = [];
+          upcoming.forEach((e) => {
+            const last = byDate[byDate.length - 1];
+            if (!last || last.date !== e.date) byDate.push({ date: e.date, items: [e] });
+            else last.items.push(e);
+          });
+          return byDate.map((group) => (
+            <div key={group.date} className="bg-white rounded-xl border border-slate-200 mb-3 overflow-hidden">
+              <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 font-bold text-slate-700 text-sm capitalize">
+                {fmtDayLabel(new Date(group.date + "T00:00:00"))}
+              </div>
+              <div className="divide-y divide-slate-100">
+                {group.items.map((e) => (
+                  <button
+                    key={e.id}
+                    onClick={() => setModal({ mode: "edit", ...e })}
+                    className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    {summarizeEntry(e)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ));
+        })()}
+      </div>
+
+        </>
+      )}
+
+      {modal && <EventModal modal={modal} eventGroups={eventGroups} onClose={() => setModal(null)} onSave={handleSave} onDelete={handleDelete} oswald={oswald} eventEntries={eventEntries} />}
     </div>
   );
 }
 
-function EventModal({ modal, eventGroups, onClose, onSave, onDelete, oswald }) {
+function EventModal({ modal, eventGroups, onClose, onSave, onDelete, oswald, eventEntries }) {
 
   const [kind, setKind] = useState(modal.kind || null);
 
@@ -1458,9 +1568,14 @@ function EventModal({ modal, eventGroups, onClose, onSave, onDelete, oswald }) {
 
   const [error, setError] = useState("");
 
+  const takenSlots = eventEntries
+    .filter((e) => e.kind === "anniversaire" && e.date === modal.date && e.id !== modal.id)
+    .map((e) => e.slot);
+
   function submit() {
     if (kind === "anniversaire") {
       if (!firstName.trim()) { setError("Le prénom est requis."); return; }
+      if (takenSlots.includes(slot)) { setError("Ce créneau est déjà réservé pour un autre anniversaire ce jour-là."); return; }
       onSave({ kind, slot, firstName: firstName.trim(), lastName: lastName.trim(), age, sportDuration, childCount, phone, email, depositPaid, invitesSent, fieldsBlocked });
     } else if (kind === "reservation") {
       if (!forWhom.trim()) { setError("Merci de préciser pour qui est la réservation."); return; }
@@ -1542,11 +1657,22 @@ function EventModal({ modal, eventGroups, onClose, onSave, onDelete, oswald }) {
           <>
             <label className="text-xs font-semibold text-slate-500 mb-1 block">Créneau</label>
             <div className="grid grid-cols-3 gap-1.5 mb-3">
-              {ANNIV_SLOTS.map((s) => (
-                <button key={s} onClick={() => setSlot(s)} className={"py-2 rounded-lg text-xs font-bold border " + (slot === s ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
-                  {s}
-                </button>
-              ))}
+              {ANNIV_SLOTS.map((s) => {
+                const taken = takenSlots.includes(s);
+                return (
+                  <button
+                    key={s}
+                    onClick={() => !taken && setSlot(s)}
+                    disabled={taken}
+                    className={
+                      "py-2 rounded-lg text-xs font-bold border " +
+                      (taken ? "border-slate-100 text-slate-300 bg-slate-50 line-through cursor-not-allowed" : slot === s ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")
+                    }
+                  >
+                    {s}
+                  </button>
+                );
+              })}
             </div>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
@@ -1939,9 +2065,13 @@ function TaskModal({ modal, groups, onClose, onSave, onDelete, oswald }) {
 
 /* ---------------- TO DO (ACTIONS + PROJETS) ---------------- */
 
-function TodoTab({ profile, actions, saveActions, projects, saveProjects, employees, oswald }) {
-  const [personFilter, setPersonFilter] = useState("all");
+function TodoTab({ profile, isManager, actions, saveActions, managerActions, saveManagerActions, projects, saveProjects, employees, oswald }) {
+  const [personFilter, setPersonFilter] = useState(profile.role === "employe" ? profile.name : "all");
   const allNames = [...MANAGERS, ...employees.map((e) => e.name)];
+
+  useEffect(() => {
+    setPersonFilter(profile.role === "employe" ? profile.name : "all");
+  }, [profile.name, profile.role]);
 
   return (
     <div>
@@ -1955,13 +2085,25 @@ function TodoTab({ profile, actions, saveActions, projects, saveProjects, employ
         </select>
       </div>
 
+      {isManager && (
+        <ActionsSection
+          profile={profile}
+          actions={managerActions}
+          saveActions={saveManagerActions}
+          allNames={MANAGERS}
+          personFilter={personFilter}
+          oswald={oswald}
+          title="Actions Managers"
+        />
+      )}
+
       <ActionsSection profile={profile} actions={actions} saveActions={saveActions} allNames={allNames} personFilter={personFilter} oswald={oswald} />
       <ProjectsSection profile={profile} projects={projects} saveProjects={saveProjects} allNames={allNames} personFilter={personFilter} oswald={oswald} />
     </div>
   );
 }
 
-function ActionsSection({ profile, actions, saveActions, allNames, personFilter, oswald }) {
+function ActionsSection({ profile, actions, saveActions, allNames, personFilter, oswald, title }) {
   const [modal, setModal] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
 
@@ -1970,6 +2112,9 @@ function ActionsSection({ profile, actions, saveActions, allNames, personFilter,
   const todo = filtered
     .filter((a) => !a.done)
     .sort((a, b) => {
+      const pa = PRIORITY_RANK[a.priority] ?? 3;
+      const pb = PRIORITY_RANK[b.priority] ?? 3;
+      if (pa !== pb) return pa - pb;
       if (a.date && b.date) return a.date.localeCompare(b.date);
       if (a.date) return -1;
       if (b.date) return 1;
@@ -1992,9 +2137,9 @@ function ActionsSection({ profile, actions, saveActions, allNames, personFilter,
     let next;
     if (modal.mode === "add") {
       const id = "act-" + Date.now();
-      next = [...actions, { id, text: data.text, date: data.date, assignee: data.assignee, comment: data.comment, freq: "", done: false, doneBy: null, doneTs: null, createdBy: profile.name, createdTs: Date.now() }];
+      next = [...actions, { id, text: data.text, date: data.date, assignee: data.assignee, priority: data.priority, comment: data.comment, freq: "", done: false, doneBy: null, doneTs: null, createdBy: profile.name, createdTs: Date.now() }];
     } else {
-      next = actions.map((a) => (a.id === modal.id ? { ...a, text: data.text, date: data.date, assignee: data.assignee, comment: data.comment } : a));
+      next = actions.map((a) => (a.id === modal.id ? { ...a, text: data.text, date: data.date, assignee: data.assignee, priority: data.priority, comment: data.comment } : a));
     }
     await saveActions(next);
     setModal(null);
@@ -2007,9 +2152,9 @@ function ActionsSection({ profile, actions, saveActions, allNames, personFilter,
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-3">
-        <div className="font-bold text-emerald-900" style={oswald}>Actions</div>
+        <div className="font-bold text-emerald-900" style={oswald}>{title || "Actions"}</div>
         <button
-          onClick={() => setModal({ mode: "add", id: null, text: "", date: "", assignee: "", comment: "" })}
+          onClick={() => setModal({ mode: "add", id: null, text: "", date: "", assignee: "Tout le monde", priority: "moyenne", comment: "" })}
           className="text-xs font-semibold text-white bg-emerald-600 rounded-lg px-3 py-1.5 flex items-center gap-1"
         >
           <Plus size={14} /> Nouvelle action
@@ -2047,15 +2192,19 @@ function ActionsSection({ profile, actions, saveActions, allNames, personFilter,
 }
 
 function ActionRow({ action, onToggle, onEdit, oswald }) {
+  const overdue = action.date && !action.done && action.date < isoDate(new Date());
+  const prio = PRIORITIES.find((p) => p.key === action.priority);
   return (
-    <div className="flex items-start gap-2 px-3 py-2.5">
+    <div className={"flex items-start gap-2 px-3 py-2.5 " + (overdue ? "bg-rose-50" : "")}>
       <button onClick={onToggle} className={"mt-0.5 w-5 h-5 rounded border shrink-0 flex items-center justify-center " + (action.done ? "bg-emerald-600 border-emerald-600" : "border-slate-300")}>
         {action.done && <Check size={14} className="text-white" />}
       </button>
       <div className="flex-1 min-w-0">
-        <div className={"text-sm " + (action.done ? "text-slate-400 line-through" : "text-slate-700")}>{action.text}</div>
+        <div className={"text-sm " + (action.done ? "text-slate-400 line-through" : overdue ? "text-rose-700 font-semibold" : "text-slate-700")}>{action.text}</div>
         <div className="flex flex-wrap gap-1.5 mt-1">
-          {action.date && <span className="text-xs bg-slate-100 text-slate-500 rounded px-1.5 py-0.5">{new Date(action.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>}
+          {overdue && <span className="text-xs bg-rose-600 text-white font-bold rounded px-1.5 py-0.5">En retard</span>}
+          {prio && <span className={"text-xs font-bold rounded px-1.5 py-0.5 " + prio.bg + " " + prio.text}>{prio.label}</span>}
+          {action.date && <span className={"text-xs rounded px-1.5 py-0.5 " + (overdue ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500")}>{new Date(action.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>}
           {action.assignee && <span className="text-xs bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5">{action.assignee}</span>}
           {action.freq && <span className="text-xs bg-amber-50 text-amber-700 rounded px-1.5 py-0.5">{action.freq}</span>}
           {action.done && <span className="text-xs text-slate-400">fait par {action.doneBy} le {new Date(action.doneTs).toLocaleDateString("fr-FR")}</span>}
@@ -2070,13 +2219,14 @@ function ActionRow({ action, onToggle, onEdit, oswald }) {
 function ActionModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
   const [text, setText] = useState(modal.text);
   const [date, setDate] = useState(modal.date || "");
-  const [assignee, setAssignee] = useState(modal.assignee || "");
+  const [assignee, setAssignee] = useState(modal.assignee || "Tout le monde");
+  const [priority, setPriority] = useState(modal.priority || "moyenne");
   const [comment, setComment] = useState(modal.comment || "");
   const [error, setError] = useState("");
 
   function submit() {
     if (!text.trim()) { setError("Le texte de l'action est requis."); return; }
-    onSave({ text: text.trim(), date, assignee, comment });
+    onSave({ text: text.trim(), date, assignee, priority, comment });
   }
 
   return (
@@ -2098,10 +2248,19 @@ function ActionModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
           <div>
             <label className="text-xs font-semibold text-slate-500 mb-1 block">Assigné à</label>
             <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm">
-              <option value="">Non assigné</option>
+              <option value="Tout le monde">Tout le monde</option>
               {allNames.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
+        </div>
+
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Priorité</label>
+        <div className="grid grid-cols-3 gap-1.5 mb-3">
+          {PRIORITIES.map((p) => (
+            <button key={p.key} onClick={() => setPriority(p.key)} className={"py-2 rounded-lg text-xs font-bold border " + (priority === p.key ? p.bg + " " + p.text + " border-transparent" : "border-slate-200 text-slate-400")}>
+              {p.label}
+            </button>
+          ))}
         </div>
 
         <label className="text-xs font-semibold text-slate-500 mb-1 block">Commentaire</label>
@@ -2131,19 +2290,33 @@ const PROJECT_STATUSES = [
 function ProjectsSection({ profile, projects, saveProjects, allNames, personFilter, oswald }) {
   const [modal, setModal] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
+  const todayISO = isoDate(new Date());
 
   const filtered = personFilter === "all" ? projects : projects.filter((p) => (p.assignees || []).includes(personFilter));
   const order = { a_faire: 0, en_cours: 1 };
-  const active = filtered.filter((p) => p.status !== "termine").sort((a, b) => (order[a.status] ?? 0) - (order[b.status] ?? 0));
+  const active = filtered
+    .filter((p) => p.status !== "termine")
+    .sort((a, b) => {
+      const oa = order[a.status] ?? 0;
+      const ob = order[b.status] ?? 0;
+      if (oa !== ob) return oa - ob;
+      const overdueA = a.dueDate && a.dueDate < todayISO;
+      const overdueB = b.dueDate && b.dueDate < todayISO;
+      if (overdueA !== overdueB) return overdueA ? -1 : 1;
+      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+      if (a.dueDate) return -1;
+      if (b.dueDate) return 1;
+      return 0;
+    });
   const archived = filtered.filter((p) => p.status === "termine");
 
   async function handleSave(data) {
     let next;
     if (modal.mode === "add") {
       const id = "proj-" + Date.now();
-      next = [...projects, { id, title: data.title, status: data.status, assignees: data.assignees, comment: data.comment, createdBy: profile.name, createdTs: Date.now() }];
+      next = [...projects, { id, title: data.title, status: data.status, dueDate: data.dueDate, assignees: data.assignees, comment: data.comment, createdBy: profile.name, createdTs: Date.now() }];
     } else {
-      next = projects.map((p) => (p.id === modal.id ? { ...p, title: data.title, status: data.status, assignees: data.assignees, comment: data.comment } : p));
+      next = projects.map((p) => (p.id === modal.id ? { ...p, title: data.title, status: data.status, dueDate: data.dueDate, assignees: data.assignees, comment: data.comment } : p));
     }
     await saveProjects(next);
     setModal(null);
@@ -2158,7 +2331,7 @@ function ProjectsSection({ profile, projects, saveProjects, allNames, personFilt
       <div className="flex items-center justify-between mb-3">
         <div className="font-bold text-emerald-900" style={oswald}>Projets</div>
         <button
-          onClick={() => setModal({ mode: "add", id: null, title: "", status: "a_faire", assignees: [], comment: "" })}
+          onClick={() => setModal({ mode: "add", id: null, title: "", status: "a_faire", dueDate: "", assignees: [], comment: "" })}
           className="text-xs font-semibold text-white bg-emerald-600 rounded-lg px-3 py-1.5 flex items-center gap-1"
         >
           <Plus size={14} /> Nouveau projet
@@ -2197,13 +2370,20 @@ function ProjectsSection({ profile, projects, saveProjects, allNames, personFilt
 
 function ProjectRow({ project, onEdit, oswald }) {
   const status = PROJECT_STATUSES.find((s) => s.key === project.status) || PROJECT_STATUSES[0];
+  const overdue = project.dueDate && project.status !== "termine" && project.dueDate < isoDate(new Date());
   return (
-    <div className="flex items-start gap-2 px-3 py-2.5">
+    <div className={"flex items-start gap-2 px-3 py-2.5 " + (overdue ? "bg-rose-50" : "")}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="text-sm font-semibold text-slate-700">{project.title}</div>
+          <div className={"text-sm font-semibold " + (overdue ? "text-rose-700" : "text-slate-700")}>{project.title}</div>
           <span className={"text-xs font-bold rounded px-1.5 py-0.5 " + status.bg + " " + status.text}>{status.label}</span>
+          {overdue && <span className="text-xs bg-rose-600 text-white font-bold rounded px-1.5 py-0.5">En retard</span>}
         </div>
+        {project.dueDate && (
+          <div className={"text-xs mt-1 " + (overdue ? "text-rose-600 font-semibold" : "text-slate-400")}>
+            Résolution : {new Date(project.dueDate + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+          </div>
+        )}
         {project.assignees && project.assignees.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-1">
             {project.assignees.map((n) => (
@@ -2221,6 +2401,7 @@ function ProjectRow({ project, onEdit, oswald }) {
 function ProjectModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
   const [title, setTitle] = useState(modal.title);
   const [status, setStatus] = useState(modal.status);
+  const [dueDate, setDueDate] = useState(modal.dueDate || "");
   const [assignees, setAssignees] = useState(modal.assignees || []);
   const [comment, setComment] = useState(modal.comment || "");
   const [error, setError] = useState("");
@@ -2231,7 +2412,7 @@ function ProjectModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
 
   function submit() {
     if (!title.trim()) { setError("Le titre du projet est requis."); return; }
-    onSave({ title: title.trim(), status, assignees, comment });
+    onSave({ title: title.trim(), status, dueDate, assignees, comment });
   }
 
   return (
@@ -2244,6 +2425,9 @@ function ProjectModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
 
         <label className="text-xs font-semibold text-slate-500 mb-1 block">Titre</label>
         <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3" placeholder="Ex: Refaire la carte des bières" />
+
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Date de résolution (optionnel)</label>
+        <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3" />
 
         <label className="text-xs font-semibold text-slate-500 mb-1 block">Statut</label>
         <div className="grid grid-cols-3 gap-1.5 mb-3">
@@ -2427,7 +2611,250 @@ function StockProductModal({ modal, groups, onClose, onSave, onDelete, oswald })
   );
 }
 
+/* ---------------- HISTORIQUE ---------------- */
+
+function HistoriqueTab({ oswald }) {
+  const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState([]);
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [nameFilter, setNameFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [tempOnly, setTempOnly] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const [tasksO, tasksF, doneO, doneF, checklistO, checklistF] = await Promise.all([
+        storageGet("tasks:ouverture:v4", []),
+        storageGet("tasks:fermeture:v4", []),
+        storageListByPrefix("process-done:ouverture:"),
+        storageListByPrefix("process-done:fermeture:"),
+        storageListByPrefix("checklist:ouverture:"),
+        storageListByPrefix("checklist:fermeture:"),
+      ]);
+
+      const map = {};
+      function ensure(date) {
+        if (!map[date]) map[date] = { date, ouverture: null, fermeture: null };
+        return map[date];
+      }
+      function initType(rec, type) {
+        if (!rec[type]) rec[type] = { finished: null, doneTasks: [], notDoneTasks: [] };
+        return rec[type];
+      }
+
+      doneO.forEach(({ key, value }) => {
+        const date = key.split(":")[2];
+        if (!date) return;
+        initType(ensure(date), "ouverture").finished = value;
+      });
+      doneF.forEach(({ key, value }) => {
+        const date = key.split(":")[2];
+        if (!date) return;
+        initType(ensure(date), "fermeture").finished = value;
+      });
+
+      function applyChecklist(entries, type, tasksList) {
+        const taskById = {};
+        tasksList.forEach((t) => { taskById[t.id] = t; });
+        entries.forEach(({ key, value }) => {
+          const date = key.split(":")[2];
+          if (!date) return;
+          const slot = initType(ensure(date), type);
+          const doneIds = new Set(Object.keys(value || {}));
+          Object.entries(value || {}).forEach(([taskId, d]) => {
+            if (!d) return;
+            const task = taskById[taskId];
+            slot.doneTasks.push({ taskId, text: task ? task.text : taskId, by: d.by, ts: d.ts, value: d.value });
+          });
+          tasksList.forEach((t) => {
+            if (!doneIds.has(t.id)) slot.notDoneTasks.push({ taskId: t.id, text: t.text });
+          });
+        });
+      }
+      applyChecklist(checklistO, "ouverture", tasksO);
+      applyChecklist(checklistF, "fermeture", tasksF);
+
+      const list = Object.values(map).sort((a, b) => b.date.localeCompare(a.date));
+      setDays(list);
+      setLoading(false);
+    })();
+  }, []);
+
+  const filtered = days.filter((d) => {
+    if (typeFilter === "ouverture" && !d.ouverture) return false;
+    if (typeFilter === "fermeture" && !d.fermeture) return false;
+    if (dateFrom && d.date < dateFrom) return false;
+    if (dateTo && d.date > dateTo) return false;
+    if (nameFilter.trim()) {
+      const q = nameFilter.trim().toLowerCase();
+      const names = [
+        d.ouverture && d.ouverture.finished ? d.ouverture.finished.by : null,
+        d.fermeture && d.fermeture.finished ? d.fermeture.finished.by : null,
+        ...((d.ouverture && d.ouverture.doneTasks) || []).map((v) => v.by),
+        ...((d.fermeture && d.fermeture.doneTasks) || []).map((v) => v.by),
+      ].filter(Boolean);
+      if (!names.some((n) => n.toLowerCase().includes(q))) return false;
+    }
+    return true;
+  });
+
+  const tempEntries = [];
+  days.forEach((d) => {
+    ["ouverture", "fermeture"].forEach((type) => {
+      const rec = d[type];
+      if (!rec) return;
+      rec.doneTasks.forEach((t) => {
+        if (t.value !== undefined) tempEntries.push({ date: d.date, type, ...t });
+      });
+    });
+  });
+  tempEntries.sort((a, b) => b.date.localeCompare(a.date) || b.ts - a.ts);
+  const filteredTemps = tempEntries.filter((t) => {
+    if (dateFrom && t.date < dateFrom) return false;
+    if (dateTo && t.date > dateTo) return false;
+    if (nameFilter.trim() && !(t.by || "").toLowerCase().includes(nameFilter.trim().toLowerCase())) return false;
+    return true;
+  });
+
+  if (loading) return <div className="text-center text-slate-400 py-10">Chargement…</div>;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3 gap-2">
+        <div className="font-bold text-emerald-900" style={oswald}>Historique</div>
+        <button
+          onClick={() => setTempOnly((v) => !v)}
+          className={"text-xs font-semibold rounded-lg px-3 py-1.5 border shrink-0 " + (tempOnly ? "bg-sky-600 text-white border-sky-600" : "border-sky-200 text-sky-700")}
+        >
+          {tempOnly ? "Tout l'historique" : "Températures uniquement"}
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {!tempOnly && (
+          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm">
+            <option value="all">Tous</option>
+            <option value="ouverture">Ouverture</option>
+            <option value="fermeture">Fermeture</option>
+          </select>
+        )}
+        <div className="flex items-center gap-1">
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm" />
+          <span className="text-xs text-slate-400">à</span>
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm" />
+        </div>
+        <input
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+          placeholder="Filtrer par personne..."
+          className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm"
+        />
+      </div>
+
+      {tempOnly ? (
+        filteredTemps.length === 0 ? (
+          <div className="text-center text-slate-400 py-10">Aucune température enregistrée.</div>
+        ) : (
+          <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+            {filteredTemps.map((t, i) => (
+              <div key={i} className="flex items-center justify-between px-3 py-2.5 gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-700">{t.text}</div>
+                  <div className="text-xs text-slate-400 capitalize">
+                    {new Date(t.date + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} · {t.type} · {t.by} à {new Date(t.ts).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                </div>
+                <span className="text-sm font-bold text-sky-700 bg-sky-50 rounded px-2 py-1 shrink-0">{t.value}</span>
+              </div>
+            ))}
+          </div>
+        )
+      ) : filtered.length === 0 ? (
+        <div className="text-center text-slate-400 py-10">Aucun historique pour cette période.</div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((d) => (
+            <div key={d.date} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 font-bold text-slate-700 text-sm capitalize">
+                {new Date(d.date + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              </div>
+              <div className="divide-y divide-slate-100">
+                {(typeFilter === "all" || typeFilter === "ouverture") && d.ouverture && (
+                  <HistoriqueRow label="Ouverture" record={d.ouverture} />
+                )}
+                {(typeFilter === "all" || typeFilter === "fermeture") && d.fermeture && (
+                  <HistoriqueRow label="Fermeture" record={d.fermeture} />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HistoriqueRow({ label, record }) {
+  const [open, setOpen] = useState(false);
+  const total = record.doneTasks.length + record.notDoneTasks.length;
+  const temps = record.doneTasks.filter((t) => t.value !== undefined);
+
+  return (
+    <div className="px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold text-slate-700">{label}</span>
+        {record.finished ? (
+          <span className="text-xs text-emerald-600 font-semibold text-right">
+            Terminé par {record.finished.by} à {new Date(record.finished.ts).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400">Non terminé</span>
+        )}
+      </div>
+
+      {temps.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {temps.map((v, i) => (
+            <span key={i} className="text-xs bg-sky-50 text-sky-700 rounded px-1.5 py-0.5">
+              {v.text} : {v.value}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {total > 0 && (
+        <button onClick={() => setOpen((o) => !o)} className="text-xs text-emerald-700 font-semibold mt-1.5">
+          {open ? "Masquer" : "Voir"} le détail des tâches ({record.doneTasks.length}/{total})
+        </button>
+      )}
+
+      {open && (
+        <div className="mt-2 space-y-1">
+          {record.doneTasks.map((t, i) => (
+            <div key={"d" + i} className="flex items-center gap-1.5 text-xs">
+              <Check size={12} className="text-emerald-600 shrink-0" />
+              <span className="text-slate-600">{t.text}</span>
+              <span className="text-slate-400">— {t.by} à {new Date(t.ts).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+            </div>
+          ))}
+          {record.notDoneTasks.map((t, i) => (
+            <div key={"n" + i} className="flex items-center gap-1.5 text-xs">
+              <X size={12} className="text-rose-400 shrink-0" />
+              <span className="text-slate-400">{t.text}</span>
+              <span className="text-rose-400">— non fait</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------------- CP ---------------- */
+
+
 
 
 
