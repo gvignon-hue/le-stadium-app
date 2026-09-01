@@ -795,7 +795,7 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
       </div>
 
       {activeTab === "planning" && <PlanningTab profile={profile} isManager={isManager} oswald={oswald} employees={employees} markers={markers} saveMarkers={saveMarkers} eventEntries={eventEntries} />}
-      {activeTab === "evenement" && <EvenementTab profile={profile} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} oswald={oswald} />}
+      {activeTab === "evenement" && <EvenementTab profile={profile} actions={actions} saveActions={saveActions} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} oswald={oswald} />}
       {activeTab === "ouverture" && <ChecklistTab type="ouverture" title="Process ouverture" seed={OUVERTURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
       {activeTab === "fermeture" && <ChecklistTab type="fermeture" title="Process fermeture" seed={FERMETURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
       {activeTab === "todo" && <TodoTab profile={profile} isManager={isManager} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} projects={projects} saveProjects={saveProjects} employees={employees} oswald={oswald} />}
@@ -1340,11 +1340,12 @@ function endOfMonth(d) {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0);
 }
 
-function EvenementTab({ profile, eventEntries, saveEventEntries, eventGroups, oswald }) {
+function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEntries, eventGroups, oswald }) {
   const [monthStart, setMonthStart] = useState(startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
+  const [upcomingFilter, setUpcomingFilter] = useState("all");
 
   function changeMonth(delta) {
     setMonthStart((m) => {
@@ -1361,13 +1362,41 @@ function EvenementTab({ profile, eventEntries, saveEventEntries, eventGroups, os
 
   async function handleSave(data) {
     let next;
+    let createdEntry = null;
     if (modal.mode === "add") {
       const id = "evt-" + Date.now();
-      next = [...eventEntries, { id, date: modal.date, createdBy: profile.name, createdTs: Date.now(), ...data }];
+      createdEntry = { id, date: modal.date, createdBy: profile.name, createdTs: Date.now(), ...data };
+      next = [...eventEntries, createdEntry];
     } else {
       next = eventEntries.map((e) => (e.id === modal.id ? { ...e, ...data } : e));
     }
     await saveEventEntries(next);
+
+    if (createdEntry && createdEntry.kind === "tournoi") {
+      const label =
+        createdEntry.subtype === "fft"
+          ? "Tournoi FFT " + (createdEntry.level || "")
+          : createdEntry.loisirsType === "Autres"
+          ? createdEntry.comment || "Tournoi loisirs"
+          : createdEntry.loisirsType || "Tournoi loisirs";
+      const dueDate = isoDate(addDays(new Date(createdEntry.date + "T00:00:00"), -15));
+      const newAction = {
+        id: "act-" + Date.now() + "-comm",
+        text: "Faire communication " + label,
+        date: dueDate,
+        assignees: ["Ewan"],
+        priority: "moyenne",
+        comment: "Évènement le " + new Date(createdEntry.date + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }),
+        freq: "",
+        done: false,
+        doneBy: null,
+        doneTs: null,
+        createdBy: profile.name,
+        createdTs: Date.now(),
+      };
+      await saveActions([...actions, newAction]);
+    }
+
     setModal(null);
   }
   async function handleDelete() {
@@ -1511,9 +1540,29 @@ function EvenementTab({ profile, eventEntries, saveEventEntries, eventGroups, os
       </div>
 
       <div className="mt-5">
-        <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">À venir</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">À venir</div>
+          <select value={upcomingFilter} onChange={(e) => setUpcomingFilter(e.target.value)} className="border border-slate-200 rounded-lg px-2 py-1 text-xs">
+            <option value="all">Tous les types</option>
+            <option value="anniversaire">Anniversaire</option>
+            <option value="reservation">Réservation</option>
+            <option value="tournoi_fft">Tournoi FFT</option>
+            <option value="tournoi_loisirs">Tournoi loisirs</option>
+            {eventGroups.map((g) => (
+              <option key={g.id} value={g.name}>{g.name}</option>
+            ))}
+          </select>
+        </div>
         {(() => {
-          const upcoming = eventEntries.filter((e) => e.date >= todayISO).sort((a, b) => a.date.localeCompare(b.date));
+          function matchesFilter(e) {
+            if (upcomingFilter === "all") return true;
+            if (upcomingFilter === "anniversaire") return e.kind === "anniversaire";
+            if (upcomingFilter === "reservation") return e.kind === "reservation";
+            if (upcomingFilter === "tournoi_fft") return e.kind === "tournoi" && e.subtype === "fft";
+            if (upcomingFilter === "tournoi_loisirs") return e.kind === "tournoi" && e.subtype === "loisirs";
+            return e.kind === "simple" && e.category === upcomingFilter;
+          }
+          const upcoming = eventEntries.filter((e) => e.date >= todayISO && matchesFilter(e)).sort((a, b) => a.date.localeCompare(b.date));
           if (upcoming.length === 0) {
             return <div className="text-center text-slate-400 py-6 text-sm">Aucun évènement à venir.</div>;
           }
@@ -1536,18 +1585,20 @@ function EvenementTab({ profile, eventEntries, saveEventEntries, eventGroups, os
                   Semaine du {fmtShort(weekStartDate)} au {fmtShort(weekEndDate)}
                 </div>
                 <div className="divide-y divide-slate-100">
-                  {group.items.map((e) => (
-                    <button
-                      key={e.id}
-                      onClick={() => setModal({ mode: "edit", ...e })}
-                      className="w-full text-left px-3 py-2 flex items-start gap-2 hover:bg-slate-50"
-                    >
-                      <span className="text-xs font-bold text-slate-400 w-9 shrink-0">
-                        {DAY_SHORT[(new Date(e.date + "T00:00:00").getDay() + 6) % 7]}
-                      </span>
-                      <span className="text-xs font-semibold text-slate-700 flex-1">{summarizeEntry(e)}</span>
-                    </button>
-                  ))}
+                  {group.items.map((e) => {
+                    const d = new Date(e.date + "T00:00:00");
+                    const dayLabel = DAY_SHORT[(d.getDay() + 6) % 7] + " " + String(d.getDate()).padStart(2, "0");
+                    return (
+                      <button
+                        key={e.id}
+                        onClick={() => setModal({ mode: "edit", ...e })}
+                        className="w-full text-left px-3 py-2 flex items-start gap-2 hover:bg-slate-50"
+                      >
+                        <span className="text-xs font-bold text-slate-400 w-14 shrink-0">{dayLabel}</span>
+                        <span className="text-xs font-semibold text-slate-700 flex-1">{summarizeEntry(e)}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             );
