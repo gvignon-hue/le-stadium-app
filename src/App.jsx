@@ -336,17 +336,6 @@ function hasAssignee(item, name) {
   return list.includes(name) || list.includes("Tout le monde");
 }
 
-function commTypeKeyForEvent(e) {
-  if (e.kind === "anniversaire") return "anniversaire";
-  if (e.kind === "reservation") return "reservation";
-  if (e.kind === "tournoi") return e.subtype === "fft" ? "tournoi_fft" : "tournoi_loisirs";
-  return e.category || "Autre";
-}
-function commTypeKeyLabel(key) {
-  const map = { anniversaire: "Anniversaire", reservation: "Réservation", tournoi_fft: "Tournoi FFT", tournoi_loisirs: "Tournoi loisirs" };
-  return map[key] || key;
-}
-
 function summarizeEntry(e) {
   if (e.kind === "anniversaire") {
     const name = [e.firstName, e.lastName].filter(Boolean).join(" ");
