@@ -858,7 +858,7 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
 
       {activeTab === "planning" && <PlanningTab profile={profile} isManager={isManager} oswald={oswald} employees={employees} markers={markers} saveMarkers={saveMarkers} eventEntries={eventEntries} />}
       {activeTab === "evenement" && <EvenementTab profile={profile} actions={actions} saveActions={saveActions} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} oswald={oswald} />}
-      {activeTab === "communication" && <CommunicationTab profile={profile} commActions={commActions} saveCommActions={saveCommActions} eventEntries={eventEntries} oswald={oswald} />}
+      {activeTab === "communication" && <CommunicationTab profile={profile} commActions={commActions} saveCommActions={saveCommActions} eventEntries={eventEntries} employees={employees} oswald={oswald} />}
       {activeTab === "ouverture" && <ChecklistTab type="ouverture" title="Process ouverture" seed={OUVERTURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
       {activeTab === "fermeture" && <ChecklistTab type="fermeture" title="Process fermeture" seed={FERMETURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
       {activeTab === "todo" && <TodoTab profile={profile} isManager={isManager} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} projects={projects} saveProjects={saveProjects} employees={employees} oswald={oswald} />}
