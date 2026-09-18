@@ -355,6 +355,40 @@ function summarizeEntry(e) {
   return (e.category || "Évènement") + ": " + (e.comment || "");
 }
 
+const COMM_TYPES = [
+  { key: "reseaux", label: "Réseaux sociaux", bg: "bg-fuchsia-100", text: "text-fuchsia-700" },
+  { key: "mail", label: "Mail", bg: "bg-sky-100", text: "text-sky-700" },
+  { key: "message", label: "Message", bg: "bg-amber-100", text: "text-amber-700" },
+  { key: "application", label: "Application", bg: "bg-emerald-100", text: "text-emerald-700" },
+  { key: "communaute", label: "Communauté", bg: "bg-violet-100", text: "text-violet-700" },
+  { key: "autre", label: "Autre", bg: "bg-slate-100", text: "text-slate-600" },
+];
+
+function fmtDateFR(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T00:00:00");
+  if (isNaN(d.getTime())) return "";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+function commIsFullyDone(action) {
+  return (action.channels || []).length > 0 && action.channels.every((c) => c.done);
+}
+function commActionStatus(action, todayISO, tomorrowISO) {
+  if (commIsFullyDone(action)) return "done";
+  const pending = (action.channels || [])
+    .filter((c) => !c.done && c.date)
+    .map((c) => c.date)
+    .sort();
+  if (pending.length === 0) return "neutral";
+  const nearest = pending[0];
+  if (nearest < todayISO) return "late";
+  if (nearest === todayISO || nearest === tomorrowISO) return "soon";
+  return "neutral";
+}
+
 const PRIORITIES = [
   { key: "haute", label: "Haute", bg: "bg-rose-100", text: "text-rose-700" },
   { key: "moyenne", label: "Moyenne", bg: "bg-amber-100", text: "text-amber-700" },
@@ -504,6 +538,7 @@ export default function App() {
   const [now, setNow] = useState(new Date());
   const [actions, setActions] = useState([]);
   const [managerActions, setManagerActions] = useState([]);
+  const [commActions, setCommActions] = useState([]);
   const [projects, setProjects] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [markers, setMarkers] = useState([]);
@@ -556,6 +591,7 @@ export default function App() {
       setActions(a);
     })();
     storageGet("manager-actions-list", []).then(setManagerActions);
+    storageGet("communication-actions", []).then(setCommActions);
     storageGet("projects-list", []).then(setProjects);
     (async () => {
       let e = await storageGet("employees:v2", null);
@@ -608,6 +644,11 @@ export default function App() {
   const saveManagerActions = useCallback(async (next) => {
     setManagerActions(next);
     await storageSet("manager-actions-list", next);
+  }, []);
+
+  const saveCommActions = useCallback(async (next) => {
+    setCommActions(next);
+    await storageSet("communication-actions", next);
   }, []);
 
   const saveProjects = useCallback(async (next) => {
@@ -747,25 +788,29 @@ export default function App() {
         )}
 
         {profile && (
-          <AppBody profile={profile} isManager={isManager} activeTab={activeTab} setActiveTab={setActiveTab} oswald={oswald} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} projects={projects} saveProjects={saveProjects} employees={employees} saveEmployees={saveEmployees} markers={markers} saveMarkers={saveMarkers} stockProducts={stockProducts} saveStockProducts={saveStockProducts} stockChecked={stockChecked} saveStockChecked={saveStockChecked} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} saveEventGroups={saveEventGroups} />
+          <AppBody profile={profile} isManager={isManager} activeTab={activeTab} setActiveTab={setActiveTab} oswald={oswald} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} commActions={commActions} saveCommActions={saveCommActions} projects={projects} saveProjects={saveProjects} employees={employees} saveEmployees={saveEmployees} markers={markers} saveMarkers={saveMarkers} stockProducts={stockProducts} saveStockProducts={saveStockProducts} stockChecked={stockChecked} saveStockChecked={saveStockChecked} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} saveEventGroups={saveEventGroups} />
         )}
       </main>
     </div>
   );
 }
 
-function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, managerActions, saveManagerActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, eventEntries, saveEventEntries, eventGroups, saveEventGroups }) {
+function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, managerActions, saveManagerActions, commActions, saveCommActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, eventEntries, saveEventEntries, eventGroups, saveEventGroups }) {
   const todayISO = isoDate(new Date());
   const pendingOwnActions = actions.filter((a) => !a.done && hasAssignee(a, profile.name)).length;
   const pendingManagerActions = isManager ? managerActions.filter((a) => !a.done && hasAssignee(a, profile.name)).length : 0;
   const overdueProjects = projects.filter((p) => p.dueDate && p.status !== "termine" && p.dueDate < todayISO && hasAssignee(p, profile.name)).length;
   const pendingActions = pendingOwnActions + pendingManagerActions + overdueProjects;
+  const tomorrowISO = isoDate(addDays(new Date(), 1));
+  const commLate = commActions.filter((a) => commActionStatus(a, todayISO, tomorrowISO) === "late").length;
+  const commSoon = commActions.filter((a) => commActionStatus(a, todayISO, tomorrowISO) === "soon").length;
   const tabs = [
     { key: "planning", label: "Planning" },
     { key: "evenement", label: "Événement" },
     { key: "ouverture", label: "Ouverture" },
     { key: "fermeture", label: "Fermeture" },
     { key: "todo", label: "To do", badge: pendingActions },
+    { key: "communication", label: "Communication", redBadge: commLate, orangeBadge: commSoon },
     { key: "stock", label: "Stock", badge: stockChecked.length },
   ];
   if (isManager) {
@@ -790,12 +835,30 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
                 {t.badge}
               </span>
             )}
+            {t.dot && (
+              <span className="absolute -top-0.5 -right-1.5 bg-rose-500 rounded-full" style={{ width: "9px", height: "9px" }} />
+            )}
+            {(t.redBadge > 0 || t.orangeBadge > 0) && (
+              <span className="absolute -top-0.5 -right-2 flex items-center gap-1">
+                {t.redBadge > 0 && (
+                  <span className="bg-rose-500 text-white rounded-full flex items-center justify-center font-bold" style={{ width: "16px", height: "16px", fontSize: "9px" }}>
+                    {t.redBadge}
+                  </span>
+                )}
+                {t.orangeBadge > 0 && (
+                  <span className="bg-orange-500 text-white rounded-full flex items-center justify-center font-bold" style={{ width: "16px", height: "16px", fontSize: "9px" }}>
+                    {t.orangeBadge}
+                  </span>
+                )}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       {activeTab === "planning" && <PlanningTab profile={profile} isManager={isManager} oswald={oswald} employees={employees} markers={markers} saveMarkers={saveMarkers} eventEntries={eventEntries} />}
       {activeTab === "evenement" && <EvenementTab profile={profile} actions={actions} saveActions={saveActions} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} oswald={oswald} />}
+      {activeTab === "communication" && <CommunicationTab profile={profile} commActions={commActions} saveCommActions={saveCommActions} eventEntries={eventEntries} oswald={oswald} />}
       {activeTab === "ouverture" && <ChecklistTab type="ouverture" title="Process ouverture" seed={OUVERTURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
       {activeTab === "fermeture" && <ChecklistTab type="fermeture" title="Process fermeture" seed={FERMETURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
       {activeTab === "todo" && <TodoTab profile={profile} isManager={isManager} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} projects={projects} saveProjects={saveProjects} employees={employees} oswald={oswald} />}
@@ -807,7 +870,330 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
   );
 }
 
+/* ---------------- COMMUNICATION ---------------- */
+
+function CommunicationTab({ profile, commActions, saveCommActions, eventEntries, employees, oswald }) {
+  const [modal, setModal] = useState(null);
+  const [showArchive, setShowArchive] = useState(false);
+  const allNames = [...MANAGERS, ...employees.filter((e) => e.doesComm).map((e) => e.name)];
+  const todayISO = isoDate(new Date());
+  const tomorrowISO = isoDate(addDays(new Date(), 1));
+  const monthAheadISO = isoDate(addDays(new Date(), 30));
+
+  function actionStatus(action) {
+    return commActionStatus(action, todayISO, tomorrowISO);
+  }
+
+  const sorted = [...commActions].sort((a, b) => (a.eventDate || "9999").localeCompare(b.eventDate || "9999"));
+  const todo = sorted.filter((a) => !commIsFullyDone(a));
+  const done = sorted.filter((a) => commIsFullyDone(a));
+
+  async function toggleChannelDone(action, channelKey) {
+    const next = commActions.map((a) =>
+      a.id === action.id
+        ? {
+            ...a,
+            channels: a.channels.map((c) =>
+              c.key === channelKey
+                ? { ...c, done: !c.done, doneBy: !c.done ? profile.name : null, doneTs: !c.done ? Date.now() : null }
+                : c
+            ),
+          }
+        : a
+    );
+    await saveCommActions(next);
+  }
+
+  async function handleSave(data) {
+    let next;
+    if (modal.mode === "add") {
+      const id = "comm-" + Date.now();
+      next = [...commActions, { id, ...data, createdBy: profile.name, createdTs: Date.now() }];
+    } else {
+      next = commActions.map((a) => (a.id === modal.id ? { ...a, ...data } : a));
+    }
+    await saveCommActions(next);
+    setModal(null);
+  }
+  async function handleDelete() {
+    await saveCommActions(commActions.filter((a) => a.id !== modal.id));
+    setModal(null);
+  }
+
+  const upcomingEvents = eventEntries.filter((e) => e.date >= todayISO && e.date <= monthAheadISO).sort((a, b) => a.date.localeCompare(b.date));
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <div className="font-bold text-emerald-900" style={oswald}>Communication</div>
+          <div className="text-xs text-slate-400">Planning éditorial autour des évènements</div>
+        </div>
+        <button
+          onClick={() => setModal({ mode: "add", id: null, eventId: "", eventDate: todayISO, eventLabel: "", channels: [], assignee: "Tout le monde", comment: "" })}
+          className="text-xs font-semibold text-white bg-emerald-600 rounded-lg px-3 py-1.5 flex items-center gap-1 shrink-0"
+        >
+          <Plus size={14} /> Nouvelle communication
+        </button>
+      </div>
+
+      {todo.length === 0 ? (
+        <div className="text-center text-slate-400 py-6 text-sm">Aucune communication en attente.</div>
+      ) : (
+        <div className="space-y-1.5 mb-3">
+          {todo.map((a) => (
+            <CommRow key={a.id} action={a} status={actionStatus(a)} onToggleChannel={(k) => toggleChannelDone(a, k)} onEdit={() => setModal({ mode: "edit", ...a })} />
+          ))}
+        </div>
+      )}
+
+      {done.length > 0 && (
+        <div>
+          <button onClick={() => setShowArchive((s) => !s)} className="text-xs font-semibold text-slate-400 mb-2">
+            {showArchive ? "Masquer" : "Voir"} les archives ({done.length})
+          </button>
+          {showArchive && (
+            <div className="space-y-1.5 mb-3">
+              {done.map((a) => (
+                <CommRow key={a.id} action={a} status="done" onToggleChannel={(k) => toggleChannelDone(a, k)} onEdit={() => setModal({ mode: "edit", ...a })} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="mt-5">
+        <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Rappel — évènements du mois à venir</div>
+        {upcomingEvents.length === 0 ? (
+          <div className="text-center text-slate-400 py-6 text-sm">Aucun évènement dans le mois à venir.</div>
+        ) : (
+          <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+            {upcomingEvents.map((e) => {
+              const d = new Date(e.date + "T00:00:00");
+              const label = DAY_SHORT[(d.getDay() + 6) % 7] + " " + String(d.getDate()).padStart(2, "0");
+              return (
+                <div key={e.id} className="px-3 py-2 flex items-start gap-2">
+                  <span className="text-xs font-bold text-slate-400 w-14 shrink-0">{label}</span>
+                  <span className="text-xs text-slate-600 flex-1">{summarizeEntry(e)}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {modal && <CommModal modal={modal} onClose={() => setModal(null)} onSave={handleSave} onDelete={handleDelete} eventEntries={eventEntries} allNames={allNames} oswald={oswald} />}
+    </div>
+  );
+}
+
+function CommRow({ action, status, onToggleChannel, onEdit }) {
+  const todayISO = isoDate(new Date());
+  const tomorrowISO = isoDate(addDays(new Date(), 1));
+  const statusStyle = {
+    done: "bg-emerald-100 border-emerald-400",
+    late: "bg-rose-100 border-rose-500",
+    soon: "bg-orange-100 border-orange-500",
+    neutral: "bg-white border-slate-200",
+  }[status];
+
+  function channelStatus(c) {
+    if (c.done) return "done";
+    if (!c.date) return "neutral";
+    if (c.date < todayISO) return "late";
+    if (c.date === todayISO || c.date === tomorrowISO) return "soon";
+    return "neutral";
+  }
+
+  return (
+    <div className={"rounded-lg border-2 px-3 py-2 " + statusStyle}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-slate-700 truncate">
+            {action.eventLabel}
+            <span className="text-slate-400 font-normal"> · {fmtDateFR(action.eventDate)}</span>
+            {action.assignee && <span className="text-slate-400 font-normal"> · {action.assignee}</span>}
+          </div>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {(action.channels || []).map((c) => {
+              const type = COMM_TYPES.find((t) => t.key === c.key) || COMM_TYPES[0];
+              const label = c.key === "autre" ? c.label || "Autre" : type.label;
+              const cStatus = channelStatus(c);
+              const chipStyle = {
+                done: "bg-emerald-600 text-white border-emerald-600",
+                late: "bg-rose-500 text-white border-rose-500",
+                soon: "bg-orange-500 text-white border-orange-500",
+                neutral: type.bg + " " + type.text + " border-transparent",
+              }[cStatus];
+              return (
+                <button
+                  key={c.key}
+                  onClick={() => onToggleChannel(c.key)}
+                  className={"flex items-center gap-1 text-xs font-semibold rounded-full px-2 py-0.5 border " + chipStyle}
+                >
+                  {c.done && <Check size={11} />}
+                  <span className={c.done ? "line-through" : ""}>{label} {fmtDateFR(c.date)}</span>
+                </button>
+              );
+            })}
+          </div>
+          {action.comment && <div className="text-xs text-slate-500 mt-1">{action.comment}</div>}
+        </div>
+        <button onClick={onEdit} className="text-slate-400 shrink-0"><Pencil size={14} /></button>
+      </div>
+    </div>
+  );
+}
+
+function CommModal({ modal, onClose, onSave, onDelete, eventEntries, allNames, oswald }) {
+  const todayISO = isoDate(new Date());
+  const monthAheadISO = isoDate(addDays(new Date(), 30));
+  const OTHER = "__other__";
+  const availableEvents = eventEntries
+    .filter((e) => (e.date >= todayISO && e.date <= monthAheadISO) || e.id === modal.eventId)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const [eventId, setEventId] = useState(modal.eventId || (modal.mode === "edit" ? OTHER : ""));
+  const [customLabel, setCustomLabel] = useState(modal.eventId ? "" : modal.eventLabel || "");
+  const [customDate, setCustomDate] = useState(modal.eventId ? todayISO : modal.eventDate || todayISO);
+  const [channels, setChannels] = useState(modal.channels || []);
+  const [assignee, setAssignee] = useState(modal.assignee || "Tout le monde");
+  const [comment, setComment] = useState(modal.comment || "");
+  const [error, setError] = useState("");
+
+  function toggleChannel(key) {
+    setChannels((prev) => {
+      const exists = prev.find((c) => c.key === key);
+      if (exists) return prev.filter((c) => c.key !== key);
+      return [...prev, { key, label: "", date: todayISO, done: false }];
+    });
+  }
+  function updateChannel(key, patch) {
+    setChannels((prev) => prev.map((c) => (c.key === key ? { ...c, ...patch } : c)));
+  }
+
+  function submit() {
+    if (eventId === OTHER) {
+      if (!customLabel.trim()) { setError("Décrivez la communication."); return; }
+    } else if (!eventId) {
+      setError("Sélectionnez un évènement, ou choisissez \"Autre\".");
+      return;
+    }
+    if (channels.length === 0) { setError("Sélectionnez au moins un canal de communication."); return; }
+    if (channels.some((c) => c.key === "autre" && !c.label.trim())) { setError("Précisez le canal \"Autre\"."); return; }
+
+    if (eventId === OTHER) {
+      onSave({ eventId: "", eventDate: customDate, eventLabel: customLabel.trim(), channels, assignee, comment });
+    } else {
+      const ev = eventEntries.find((e) => e.id === eventId);
+      onSave({ eventId, eventDate: ev ? ev.date : modal.eventDate, eventLabel: ev ? summarizeEntry(ev) : modal.eventLabel, channels, assignee, comment });
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(15, 23, 42, 0.5)", zIndex: 50 }} onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full p-5 overflow-y-auto" style={{ maxWidth: "440px", maxHeight: "88vh" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-bold text-emerald-900" style={oswald}>{modal.mode === "add" ? "Nouvelle communication" : "Modifier la communication"}</div>
+          <button onClick={onClose} className="text-slate-400"><X size={20} /></button>
+        </div>
+
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Évènement (prochain mois) ou autre</label>
+        <select value={eventId} onChange={(e) => setEventId(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3">
+          <option value="">Sélectionner un évènement</option>
+          <option value={OTHER}>Autre (sans évènement)</option>
+          {availableEvents.map((e) => (
+            <option key={e.id} value={e.id}>{fmtDateFR(e.date)} — {summarizeEntry(e)}</option>
+          ))}
+        </select>
+
+        {eventId === OTHER && (
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="col-span-2">
+              <label className="text-xs font-semibold text-slate-500 mb-1 block">Description</label>
+              <input value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Ex: Promotion rentrée" />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs font-semibold text-slate-500 mb-1 block">Date de référence</label>
+              <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+          </div>
+        )}
+
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Canaux de communication</label>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {COMM_TYPES.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => toggleChannel(t.key)}
+              className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (channels.some((c) => c.key === t.key) ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {channels.length > 0 && (
+          <div className="space-y-2 mb-3">
+            {channels.map((c) => {
+              const type = COMM_TYPES.find((t) => t.key === c.key);
+              return (
+                <div key={c.key} className="border border-slate-200 rounded-lg p-2">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className={"text-xs font-bold rounded px-1.5 py-0.5 " + type.bg + " " + type.text}>{type.label}</span>
+                    <label className="flex items-center gap-1.5 text-xs text-slate-600">
+                      <input type="checkbox" checked={c.done} onChange={(e) => updateChannel(c.key, { done: e.target.checked })} /> Fait
+                    </label>
+                  </div>
+                  {c.key === "autre" && (
+                    <input
+                      value={c.label}
+                      onChange={(e) => updateChannel(c.key, { label: e.target.value })}
+                      placeholder="Précisez le canal"
+                      className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm mb-1.5"
+                    />
+                  )}
+                  <input type="date" value={c.date} onChange={(e) => updateChannel(c.key, { date: e.target.value })} className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm" />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Assigné à</label>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          <button onClick={() => setAssignee("Tout le monde")} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (assignee === "Tout le monde" ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
+            Tout le monde
+          </button>
+          {allNames.map((n) => (
+            <button key={n} onClick={() => setAssignee(n)} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (assignee === n ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
+              {n}
+            </button>
+          ))}
+        </div>
+
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Commentaire (optionnel)</label>
+        <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3" />
+
+        {error && <div className="text-rose-600 text-xs mb-3">{error}</div>}
+
+        <div className="flex gap-2">
+          {modal.mode === "edit" && (
+            <button onClick={onDelete} className="px-3 py-2 rounded-lg border border-rose-200 text-rose-600 flex items-center gap-1 text-sm font-semibold">
+              <Trash2 size={16} /> Supprimer
+            </button>
+          )}
+          <button onClick={submit} className="flex-1 py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- PLANNING ---------------- */
+
+
+
 
 function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarkers, eventEntries }) {
   const [weekStart, setWeekStart] = useState(mondayOf(new Date()));
@@ -2282,7 +2668,7 @@ function ActionRow({ action, onToggle, onEdit, oswald }) {
         <div className="flex flex-wrap gap-1.5 mt-1">
           {overdue && <span className="text-xs bg-rose-600 text-white font-bold rounded px-1.5 py-0.5">En retard</span>}
           {prio && <span className={"text-xs font-bold rounded px-1.5 py-0.5 " + prio.bg + " " + prio.text}>{prio.label}</span>}
-          {action.date && <span className={"text-xs rounded px-1.5 py-0.5 " + (overdue ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500")}>{new Date(action.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>}
+          {action.date && <span className={"text-xs rounded px-1.5 py-0.5 " + (overdue ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500")}>{fmtDateFR(action.date)}</span>}
           {(action.assignees || (action.assignee ? [action.assignee] : [])).map((n) => (
             <span key={n} className="text-xs bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5">{n}</span>
           ))}
@@ -2298,20 +2684,15 @@ function ActionRow({ action, onToggle, onEdit, oswald }) {
 
 function ActionModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
   const [text, setText] = useState(modal.text);
-  const [date, setDate] = useState(modal.date || "");
-  const [assignees, setAssignees] = useState(modal.assignees || (modal.assignee ? [modal.assignee] : ["Tout le monde"]));
+  const [date, setDate] = useState(modal.date || isoDate(new Date()));
+  const [assignee, setAssignee] = useState(modal.assignee || (modal.assignees && modal.assignees[0]) || "Tout le monde");
   const [priority, setPriority] = useState(modal.priority || "moyenne");
   const [comment, setComment] = useState(modal.comment || "");
   const [error, setError] = useState("");
 
-  function toggleAssignee(n) {
-    setAssignees((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]));
-  }
-
   function submit() {
     if (!text.trim()) { setError("Le texte de l'action est requis."); return; }
-    if (assignees.length === 0) { setError("Sélectionnez au moins une personne."); return; }
-    onSave({ text: text.trim(), date, assignees, priority, comment });
+    onSave({ text: text.trim(), date, assignees: [assignee], priority, comment });
   }
 
   return (
@@ -2328,13 +2709,13 @@ function ActionModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
         <label className="text-xs font-semibold text-slate-500 mb-1 block">Date</label>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm mb-3" />
 
-        <label className="text-xs font-semibold text-slate-500 mb-1 block">Assigné à (plusieurs possibles)</label>
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Assigné à</label>
         <div className="flex flex-wrap gap-1.5 mb-3">
-          <button onClick={() => toggleAssignee("Tout le monde")} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (assignees.includes("Tout le monde") ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
+          <button onClick={() => setAssignee("Tout le monde")} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (assignee === "Tout le monde" ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
             Tout le monde
           </button>
           {allNames.map((n) => (
-            <button key={n} onClick={() => toggleAssignee(n)} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (assignees.includes(n) ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
+            <button key={n} onClick={() => setAssignee(n)} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (assignee === n ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
               {n}
             </button>
           ))}
@@ -3014,30 +3395,41 @@ function SettingsTab({ employees, saveEmployees, eventGroups, saveEventGroups, s
     await saveEmployees(employees.filter((e) => e.id !== id));
     setConfirmId(null);
   }
+  async function toggleComm(id) {
+    await saveEmployees(employees.map((e) => (e.id === id ? { ...e, doesComm: !e.doesComm } : e)));
+  }
 
   return (
     <div>
       <div className="font-bold text-emerald-900 mb-1" style={oswald}>Employés</div>
-      <p className="text-xs text-slate-400 mb-3">Les employés ajoutés ici apparaissent dans le sélecteur de profil (pour badger) et comme lignes dans le planning.</p>
+      <p className="text-xs text-slate-400 mb-3">Les employés ajoutés ici apparaissent dans le sélecteur de profil (pour badger) et comme lignes dans le planning. Le bouton "Communication" détermine qui peut recevoir des actions dans l'onglet Communication (les managers y ont toujours accès).</p>
 
       <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 mb-4">
         {employees.map((emp) => {
           const c = EMP_PALETTE[emp.colorIdx % EMP_PALETTE.length];
           return (
-            <div key={emp.id} className="flex items-center justify-between px-3 py-2.5">
-              <div className="flex items-center gap-2">
+            <div key={emp.id} className="flex items-center justify-between px-3 py-2.5 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <span className={"w-3 h-3 rounded-full shrink-0 " + c.bg} />
-                <span className="text-sm font-semibold text-slate-700">{emp.name}</span>
+                <span className="text-sm font-semibold text-slate-700 truncate">{emp.name}</span>
               </div>
-              {confirmId === emp.id ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Supprimer ?</span>
-                  <button onClick={() => removeEmployee(emp.id)} className="text-xs font-bold text-rose-600">Oui</button>
-                  <button onClick={() => setConfirmId(null)} className="text-xs text-slate-400">Annuler</button>
-                </div>
-              ) : (
-                <button onClick={() => setConfirmId(emp.id)} className="text-slate-400"><Trash2 size={16} /></button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => toggleComm(emp.id)}
+                  className={"text-xs font-semibold rounded-lg px-2 py-1 border " + (emp.doesComm ? "bg-violet-600 text-white border-violet-600" : "border-slate-200 text-slate-400")}
+                >
+                  Communication
+                </button>
+                {confirmId === emp.id ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400">Supprimer ?</span>
+                    <button onClick={() => removeEmployee(emp.id)} className="text-xs font-bold text-rose-600">Oui</button>
+                    <button onClick={() => setConfirmId(null)} className="text-xs text-slate-400">Annuler</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmId(emp.id)} className="text-slate-400"><Trash2 size={16} /></button>
+                )}
+              </div>
             </div>
           );
         })}
