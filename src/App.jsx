@@ -546,6 +546,8 @@ export default function App() {
   const [stockChecked, setStockChecked] = useState([]);
   const [eventEntries, setEventEntries] = useState([]);
   const [eventGroups, setEventGroups] = useState([]);
+  const [commDisabledTypes, setCommDisabledTypes] = useState([]);
+  const [notes, setNotes] = useState([]);
   const [activeTab, setActiveTab] = useState("planning");
 
   useEffect(() => {
@@ -634,6 +636,8 @@ export default function App() {
       }
       setEventGroups(eg);
     })();
+    storageGet("comm-disabled-types", []).then(setCommDisabledTypes);
+    storageGet("notes-list", []).then(setNotes);
   }, []);
 
   const saveActions = useCallback(async (next) => {
@@ -684,6 +688,16 @@ export default function App() {
   const saveEventGroups = useCallback(async (next) => {
     setEventGroups(next);
     await storageSet("event-groups:v2", next);
+  }, []);
+
+  const saveCommDisabledTypes = useCallback(async (next) => {
+    setCommDisabledTypes(next);
+    await storageSet("comm-disabled-types", next);
+  }, []);
+
+  const saveNotes = useCallback(async (next) => {
+    setNotes(next);
+    await storageSet("notes-list", next);
   }, []);
 
   function selectProfile(name, role) {
@@ -788,14 +802,14 @@ export default function App() {
         )}
 
         {profile && (
-          <AppBody profile={profile} isManager={isManager} activeTab={activeTab} setActiveTab={setActiveTab} oswald={oswald} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} commActions={commActions} saveCommActions={saveCommActions} projects={projects} saveProjects={saveProjects} employees={employees} saveEmployees={saveEmployees} markers={markers} saveMarkers={saveMarkers} stockProducts={stockProducts} saveStockProducts={saveStockProducts} stockChecked={stockChecked} saveStockChecked={saveStockChecked} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} saveEventGroups={saveEventGroups} />
+          <AppBody profile={profile} isManager={isManager} activeTab={activeTab} setActiveTab={setActiveTab} oswald={oswald} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} commActions={commActions} saveCommActions={saveCommActions} projects={projects} saveProjects={saveProjects} employees={employees} saveEmployees={saveEmployees} markers={markers} saveMarkers={saveMarkers} stockProducts={stockProducts} saveStockProducts={saveStockProducts} stockChecked={stockChecked} saveStockChecked={saveStockChecked} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} saveEventGroups={saveEventGroups} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} notes={notes} saveNotes={saveNotes} />
         )}
       </main>
     </div>
   );
 }
 
-function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, managerActions, saveManagerActions, commActions, saveCommActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, eventEntries, saveEventEntries, eventGroups, saveEventGroups }) {
+function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, managerActions, saveManagerActions, commActions, saveCommActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, eventEntries, saveEventEntries, eventGroups, saveEventGroups, commDisabledTypes, saveCommDisabledTypes, notes, saveNotes }) {
   const todayISO = isoDate(new Date());
   const pendingOwnActions = actions.filter((a) => !a.done && hasAssignee(a, profile.name)).length;
   const pendingManagerActions = isManager ? managerActions.filter((a) => !a.done && hasAssignee(a, profile.name)).length : 0;
@@ -818,6 +832,7 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
     tabs.push({ key: "historique", label: "Historique" });
     tabs.push({ key: "reglages", label: "Réglages" });
   }
+  tabs.push({ key: "notes", label: "Note" });
 
   return (
     <div>
@@ -858,21 +873,22 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
 
       {activeTab === "planning" && <PlanningTab profile={profile} isManager={isManager} oswald={oswald} employees={employees} markers={markers} saveMarkers={saveMarkers} eventEntries={eventEntries} />}
       {activeTab === "evenement" && <EvenementTab profile={profile} actions={actions} saveActions={saveActions} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} oswald={oswald} />}
-      {activeTab === "communication" && <CommunicationTab profile={profile} commActions={commActions} saveCommActions={saveCommActions} eventEntries={eventEntries} employees={employees} oswald={oswald} />}
+      {activeTab === "communication" && <CommunicationTab profile={profile} commActions={commActions} saveCommActions={saveCommActions} eventEntries={eventEntries} employees={employees} commDisabledTypes={commDisabledTypes} oswald={oswald} />}
       {activeTab === "ouverture" && <ChecklistTab type="ouverture" title="Process ouverture" seed={OUVERTURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
       {activeTab === "fermeture" && <ChecklistTab type="fermeture" title="Process fermeture" seed={FERMETURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
       {activeTab === "todo" && <TodoTab profile={profile} isManager={isManager} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} projects={projects} saveProjects={saveProjects} employees={employees} oswald={oswald} />}
       {activeTab === "stock" && <StockTab products={stockProducts} saveProducts={saveStockProducts} checked={stockChecked} saveChecked={saveStockChecked} oswald={oswald} />}
       {activeTab === "cp" && isManager && <CPTab markers={markers} employees={employees} oswald={oswald} />}
       {activeTab === "historique" && isManager && <HistoriqueTab oswald={oswald} />}
-      {activeTab === "reglages" && isManager && <SettingsTab employees={employees} saveEmployees={saveEmployees} eventGroups={eventGroups} saveEventGroups={saveEventGroups} saveActions={saveActions} saveEventEntries={saveEventEntries} oswald={oswald} />}
+      {activeTab === "reglages" && isManager && <SettingsTab employees={employees} saveEmployees={saveEmployees} eventGroups={eventGroups} saveEventGroups={saveEventGroups} saveActions={saveActions} saveEventEntries={saveEventEntries} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} oswald={oswald} />}
+      {activeTab === "notes" && <NotesTab profile={profile} notes={notes} saveNotes={saveNotes} oswald={oswald} />}
     </div>
   );
 }
 
 /* ---------------- COMMUNICATION ---------------- */
 
-function CommunicationTab({ profile, commActions, saveCommActions, eventEntries, employees, oswald }) {
+function CommunicationTab({ profile, commActions, saveCommActions, eventEntries, employees, commDisabledTypes, oswald }) {
   const [modal, setModal] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
   const allNames = [...MANAGERS, ...employees.filter((e) => e.doesComm).map((e) => e.name)];
@@ -982,7 +998,7 @@ function CommunicationTab({ profile, commActions, saveCommActions, eventEntries,
         )}
       </div>
 
-      {modal && <CommModal modal={modal} onClose={() => setModal(null)} onSave={handleSave} onDelete={handleDelete} eventEntries={eventEntries} allNames={allNames} oswald={oswald} />}
+      {modal && <CommModal modal={modal} onClose={() => setModal(null)} onSave={handleSave} onDelete={handleDelete} eventEntries={eventEntries} allNames={allNames} commDisabledTypes={commDisabledTypes} oswald={oswald} />}
     </div>
   );
 }
@@ -1045,15 +1061,16 @@ function CommRow({ action, status, onToggleChannel, onEdit }) {
   );
 }
 
-function CommModal({ modal, onClose, onSave, onDelete, eventEntries, allNames, oswald }) {
+function CommModal({ modal, onClose, onSave, onDelete, eventEntries, allNames, commDisabledTypes, oswald }) {
   const todayISO = isoDate(new Date());
   const monthAheadISO = isoDate(addDays(new Date(), 30));
-  const OTHER = "__other__";
+  const disabled = commDisabledTypes || [];
   const availableEvents = eventEntries
-    .filter((e) => (e.date >= todayISO && e.date <= monthAheadISO) || e.id === modal.eventId)
+    .filter((e) => ((e.date >= todayISO && e.date <= monthAheadISO) || e.id === modal.eventId) && !disabled.includes(commTypeKeyForEvent(e)))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const [eventId, setEventId] = useState(modal.eventId || (modal.mode === "edit" ? OTHER : ""));
+  const [source, setSource] = useState(modal.eventId ? "event" : modal.mode === "edit" ? "other" : "event");
+  const [eventId, setEventId] = useState(modal.eventId || "");
   const [customLabel, setCustomLabel] = useState(modal.eventId ? "" : modal.eventLabel || "");
   const [customDate, setCustomDate] = useState(modal.eventId ? todayISO : modal.eventDate || todayISO);
   const [channels, setChannels] = useState(modal.channels || []);
@@ -1073,16 +1090,16 @@ function CommModal({ modal, onClose, onSave, onDelete, eventEntries, allNames, o
   }
 
   function submit() {
-    if (eventId === OTHER) {
+    if (source === "other") {
       if (!customLabel.trim()) { setError("Décrivez la communication."); return; }
     } else if (!eventId) {
-      setError("Sélectionnez un évènement, ou choisissez \"Autre\".");
+      setError("Sélectionnez un évènement.");
       return;
     }
     if (channels.length === 0) { setError("Sélectionnez au moins un canal de communication."); return; }
     if (channels.some((c) => c.key === "autre" && !c.label.trim())) { setError("Précisez le canal \"Autre\"."); return; }
 
-    if (eventId === OTHER) {
+    if (source === "other") {
       onSave({ eventId: "", eventDate: customDate, eventLabel: customLabel.trim(), channels, assignee, comment });
     } else {
       const ev = eventEntries.find((e) => e.id === eventId);
@@ -1098,16 +1115,28 @@ function CommModal({ modal, onClose, onSave, onDelete, eventEntries, allNames, o
           <button onClick={onClose} className="text-slate-400"><X size={20} /></button>
         </div>
 
-        <label className="text-xs font-semibold text-slate-500 mb-1 block">Évènement (prochain mois) ou autre</label>
-        <select value={eventId} onChange={(e) => setEventId(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3">
-          <option value="">Sélectionner un évènement</option>
-          <option value={OTHER}>Autre (sans évènement)</option>
-          {availableEvents.map((e) => (
-            <option key={e.id} value={e.id}>{fmtDateFR(e.date)} — {summarizeEntry(e)}</option>
-          ))}
-        </select>
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Basé sur</label>
+        <div className="grid grid-cols-2 gap-1.5 mb-3">
+          <button onClick={() => setSource("event")} className={"py-2 rounded-lg text-xs font-bold border " + (source === "event" ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
+            Évènement existant
+          </button>
+          <button onClick={() => setSource("other")} className={"py-2 rounded-lg text-xs font-bold border " + (source === "other" ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
+            Autre
+          </button>
+        </div>
 
-        {eventId === OTHER && (
+        {source === "event" ? (
+          <div className="mb-3">
+            <label className="text-xs font-semibold text-slate-500 mb-1 block">Évènement (prochain mois)</label>
+            <select value={eventId} onChange={(e) => setEventId(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              <option value="">Sélectionner un évènement</option>
+              {availableEvents.map((e) => (
+                <option key={e.id} value={e.id}>{fmtDateFR(e.date)} — {summarizeEntry(e)}</option>
+              ))}
+            </select>
+            {availableEvents.length === 0 && <div className="text-xs text-slate-400 mt-1">Aucun évènement disponible dans le mois à venir.</div>}
+          </div>
+        ) : (
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div className="col-span-2">
               <label className="text-xs font-semibold text-slate-500 mb-1 block">Description</label>
@@ -3373,7 +3402,7 @@ function CPTab({ markers, employees, oswald }) {
 
 /* ---------------- RÉGLAGES ---------------- */
 
-function SettingsTab({ employees, saveEmployees, eventGroups, saveEventGroups, saveActions, saveEventEntries, oswald }) {
+function SettingsTab({ employees, saveEmployees, eventGroups, saveEventGroups, saveActions, saveEventEntries, commDisabledTypes, saveCommDisabledTypes, oswald }) {
   const [name, setName] = useState("");
   const [confirmId, setConfirmId] = useState(null);
   const [error, setError] = useState("");
@@ -3456,6 +3485,8 @@ function SettingsTab({ employees, saveEmployees, eventGroups, saveEventGroups, s
 
       <EventGroupsSection eventGroups={eventGroups} saveEventGroups={saveEventGroups} oswald={oswald} />
 
+      <CommSettingsSection eventGroups={eventGroups} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} oswald={oswald} />
+
       <ImportPlanningSection employees={employees} oswald={oswald} />
 
       <DangerZone saveActions={saveActions} saveEventEntries={saveEventEntries} oswald={oswald} />
@@ -3478,6 +3509,39 @@ function parseTime(str) {
   const m = parts[1] ? parseInt(parts[1], 10) : 0;
   if (isNaN(h)) return null;
   return h * 60 + (isNaN(m) ? 0 : m);
+}
+
+function CommSettingsSection({ eventGroups, commDisabledTypes, saveCommDisabledTypes, oswald }) {
+  const allTypeKeys = ["anniversaire", "reservation", "tournoi_fft", "tournoi_loisirs", ...eventGroups.map((g) => g.name)];
+  const disabled = commDisabledTypes || [];
+
+  async function toggle(key) {
+    const next = disabled.includes(key) ? disabled.filter((k) => k !== key) : [...disabled, key];
+    await saveCommDisabledTypes(next);
+  }
+
+  return (
+    <div className="mt-6 pt-4 border-t border-slate-200">
+      <div className="font-bold text-emerald-900 mb-1" style={oswald}>Communication</div>
+      <p className="text-xs text-slate-400 mb-3">
+        Choisissez quels types d'évènements peuvent être sélectionnés en créant une communication dans l'onglet Communication.
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {allTypeKeys.map((key) => {
+          const isOn = !disabled.includes(key);
+          return (
+            <button
+              key={key}
+              onClick={() => toggle(key)}
+              className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (isOn ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-400")}
+            >
+              {commTypeKeyLabel(key)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function EventGroupsSection({ eventGroups, saveEventGroups, oswald }) {
@@ -3753,6 +3817,61 @@ function DangerButton({ label, description, onConfirm }) {
           Oui, tout effacer
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- NOTE ---------------- */
+
+function NotesTab({ profile, notes, saveNotes, oswald }) {
+  const [text, setText] = useState("");
+
+  async function addNote() {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const note = { id: "note-" + Date.now(), text: trimmed, author: profile.name, createdTs: Date.now() };
+    await saveNotes([note, ...notes]);
+    setText("");
+  }
+  async function deleteNote(id) {
+    await saveNotes(notes.filter((n) => n.id !== id));
+  }
+
+  const sorted = [...notes].sort((a, b) => b.createdTs - a.createdTs);
+
+  return (
+    <div>
+      <div className="font-bold text-emerald-900 mb-1" style={oswald}>Note</div>
+      <p className="text-xs text-slate-400 mb-3">Un pense-bête partagé, visible par tous.</p>
+
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={2}
+        placeholder="Écrire une note pour tout le monde..."
+        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2"
+      />
+      <button onClick={addNote} className="mb-4 text-xs font-semibold text-white bg-emerald-600 rounded-lg px-3 py-1.5 flex items-center gap-1">
+        <Plus size={14} /> Ajouter une note
+      </button>
+
+      {sorted.length === 0 ? (
+        <div className="text-center text-slate-400 py-10">Aucune note pour l'instant.</div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100">
+          {sorted.map((n) => (
+            <div key={n.id} className="px-3 py-2.5 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-sm text-slate-700 whitespace-pre-line">{n.text}</div>
+                <div className="text-xs text-slate-400 mt-1">
+                  {n.author} · {new Date(n.createdTs).toLocaleDateString("fr-FR")} à {new Date(n.createdTs).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                </div>
+              </div>
+              <button onClick={() => deleteNote(n.id)} className="text-slate-400 shrink-0"><Trash2 size={14} /></button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
