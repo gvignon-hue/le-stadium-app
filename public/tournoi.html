@@ -676,13 +676,20 @@ function vConvoc(){
   </section>
   <section class="card noprint">
     <h2>Envoyer les convocations</h2>
-    <p class="help">Chaque bouton ouvre WhatsApp avec le message prêt : il ne reste qu'à appuyer sur Envoyer. La convocation porte sur le premier match de la paire.</p>
-    ${active().map(p=>{const m=first[p.id];if(!m)return'';return`<div class="pair-conv">
-      <div><strong>${esc(label(p))}</strong><div class="muted" style="font-size:14px">Arrivée ${toHM(m.time-(Number(s.early)||0))}, match M${m.num} à ${toHM(m.time)}, terrain T${m.court}</div></div>
-      <div class="acts">${p.p.map((j,k)=>{const key=p.id+'-'+k;const txt=message(Mo,p,k,m);
-        return j.tel?`<a class="btn wa" target="_blank" rel="noopener" data-sent="${key}" href="https://wa.me/${j.tel}?text=${encodeURIComponent(txt)}">WhatsApp ${esc(j.prenom)}</a>${S.sent[key]?'<span class="sent">envoyé</span>':''}`:`<span class="muted">${esc(j.prenom)} : pas de numéro</span>`}).join('')}</div>
-      <div class="preview">${esc(message(Mo,p,0,m))}</div>
-    </div>`}).join('')}
+    <p class="help">Chaque bouton ouvre WhatsApp avec le message prêt : il ne reste qu'à appuyer sur Envoyer. La convocation porte sur le premier match de la paire. Les paires sont regroupées par heure d'arrivée.</p>
+    ${(()=>{
+      const early=Number(s.early)||0,groups={};
+      active().forEach(p=>{const m=first[p.id];if(!m)return;const at=m.time-early;(groups[at]=groups[at]||[]).push(p)});
+      const times=Object.keys(groups).map(Number).sort((a,b)=>a-b);
+      return times.map(t=>`
+      <h3 style="margin:18px 0 8px;color:var(--court)">Arrivée ${toHM(t)} <span class="muted" style="font-weight:400;font-size:14px">(${groups[t].length} paire${groups[t].length>1?'s':''})</span></h3>
+      ${groups[t].map(p=>{const m=first[p.id];return`<div class="pair-conv">
+        <div><strong>${esc(label(p))}</strong><div class="muted" style="font-size:14px">Arrivée ${toHM(m.time-early)}, match M${m.num} à ${toHM(m.time)}, terrain T${m.court}</div></div>
+        <div class="acts">${p.p.map((j,k)=>{const key=p.id+'-'+k;const txt=message(Mo,p,k,m);
+          return j.tel?`<a class="btn wa" target="_blank" rel="noopener" data-sent="${key}" href="https://wa.me/${j.tel}?text=${encodeURIComponent(txt)}">WhatsApp ${esc(j.prenom)}</a>${S.sent[key]?'<span class="sent">envoyé</span>':''}`:`<span class="muted">${esc(j.prenom)} : pas de numéro</span>`}).join('')}</div>
+        <div class="preview">${esc(message(Mo,p,0,m))}</div>
+      </div>`}).join('')}`).join('');
+    })()}
   </section>`;
 }
 function message(Mo,p,k,m){
