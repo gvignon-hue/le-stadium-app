@@ -197,15 +197,33 @@ let S; try{S=JSON.parse(localStorage.getItem(KEY))||fresh()}catch(e){S=fresh()}
 S.settings=Object.assign(fresh().settings,S.settings||{});
 if(TPL_OLD.includes(S.settings.tpl))S.settings.tpl=TPL;
 let UI={};
-/* Sauvegarde : dans le navigateur + partagée en ligne (staff) quand c'est disponible */
-const CID=Math.random().toString(36).slice(2);let REF=null,syncTimer=null,pendingRemote=null,SYNC='local';
+/* Sauvegarde : dans le navigateur + partagée en ligne (staff) via Supabase */
+const SUPABASE_URL='https://sjqtjhsaljwrstquqnli.supabase.co';
+const SUPABASE_KEY='sb_publishable_5hSol31UR_jpvwYRIc4Cjg_TFulzedg';
+const CID=Math.random().toString(36).slice(2);let syncTimer=null,pendingRemote=null,SYNC='local',lastRemoteAt=0;
 const shared=()=>{const o=Object.assign({},S);delete o.tab;delete o._err;return o};
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
-function save(){saveLocal();if(!REF)return;clearTimeout(syncTimer);syncTimer=setTimeout(pushRemote,400)}
+function save(){saveLocal();clearTimeout(syncTimer);syncTimer=setTimeout(pushRemote,400)}
+async function fetchRemote(){
+  const res=await fetch(SUPABASE_URL+'/rest/v1/app_storage?key=eq.tournoi-state&select=value',{
+    headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}
+  });
+  if(!res.ok)throw new Error('http '+res.status);
+  const rows=await res.json();
+  return rows.length?rows[0].value:null;
+}
 async function pushRemote(){
-  if(!REF)return;
-  try{await REF.set({state:JSON.stringify(shared()),by:CID,at:Date.now()});setSync('ok')}
-  catch(e){setSync(e.code==='invalid_argument'?'ro':'err')}
+  try{
+    const payload={key:'tournoi-state',value:{state:JSON.stringify(shared()),by:CID,at:Date.now()},updated_at:new Date().toISOString()};
+    const res=await fetch(SUPABASE_URL+'/rest/v1/app_storage',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify(payload)
+    });
+    if(!res.ok)throw new Error('http '+res.status);
+    lastRemoteAt=payload.value.at;
+    setSync('ok');
+  }catch(e){setSync('err')}
 }
 function setSync(v){SYNC=v;const el=document.getElementById('sync');if(!el)return;
   el.textContent={local:'Enregistré sur cet appareil',ok:'Enregistré en ligne, partagé avec le staff',err:'Connexion perdue : enregistré sur cet appareil',ro:'Lecture seule : vous ne pouvez pas modifier ce tournoi'}[v]||'';el.dataset.s=v}
@@ -219,18 +237,20 @@ function applyRemote(d){
   render();
 }
 document.addEventListener('focusout',()=>setTimeout(()=>{if(pendingRemote&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))){pendingRemote=false;render()}},50));
-async function initSync(){
-  let db=null;try{db=await window.claude?.use?.('db')}catch(e){}
-  if(!db){setSync('local');return}
-  REF=db.doc('tournoi/courant');let first=true;
-  REF.onSnapshot(snap=>{
-    const d=snap.exists?snap.data():null;
-    if(first){first=false;
-      if(!d){if(S.all.length)pushRemote();else setSync('ok');return}
-    }
+async function pollRemote(){
+  try{
+    const d=await fetchRemote();
     setSync('ok');
-    if(d&&d.by!==CID)applyRemote(d);
-  },e=>setSync('err'));
+    if(d&&d.by!==CID&&d.at!==lastRemoteAt){lastRemoteAt=d.at;applyRemote(d)}
+  }catch(e){setSync('err')}
+}
+async function initSync(){
+  try{
+    const d=await fetchRemote();
+    if(!d){if(S.all.length)pushRemote();else setSync('ok')}
+    else{lastRemoteAt=d.at;if(d.by!==CID)applyRemote(d);setSync('ok')}
+  }catch(e){setSync('local');return}
+  setInterval(pollRemote,5000);
 }
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
