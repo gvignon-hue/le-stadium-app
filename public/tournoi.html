@@ -676,7 +676,11 @@ function vConvoc(){
   </section>
   <section class="card noprint">
     <h2>Envoyer les convocations</h2>
-    <p class="help">Chaque bouton ouvre WhatsApp avec le message prêt : il ne reste qu'à appuyer sur Envoyer. La convocation porte sur le premier match de la paire. Les paires sont regroupées par heure d'arrivée.</p>
+    <p class="help">Chaque bouton ouvre WhatsApp avec le message prêt : il ne reste qu'à appuyer sur Envoyer. La convocation porte sur le premier match de la paire, avec une arrivée 15 min avant ce match précis (pas avant le tour entier). Les paires sont regroupées par heure d'arrivée.</p>
+    ${(()=>{
+      const ex=active()[0],exM=ex&&first[ex.id];
+      return exM?`<div class="preview" style="margin-bottom:18px"><div class="muted" style="font-size:13px;margin-bottom:4px">Exemple de message</div>${esc(message(Mo,ex,0,exM))}</div>`:'';
+    })()}
     ${(()=>{
       const early=Number(s.early)||0,groups={};
       active().forEach(p=>{const m=first[p.id];if(!m)return;const at=m.time-early;(groups[at]=groups[at]||[]).push(p)});
@@ -687,7 +691,6 @@ function vConvoc(){
         <div><strong>${esc(label(p))}</strong><div class="muted" style="font-size:14px">Arrivée ${toHM(m.time-early)}, match M${m.num} à ${toHM(m.time)}, terrain T${m.court}</div></div>
         <div class="acts">${p.p.map((j,k)=>{const key=p.id+'-'+k;const txt=message(Mo,p,k,m);
           return j.tel?`<a class="btn wa" target="_blank" rel="noopener" data-sent="${key}" href="https://wa.me/${j.tel}?text=${encodeURIComponent(txt)}">WhatsApp ${esc(j.prenom)}</a>${S.sent[key]?'<span class="sent">envoyé</span>':''}`:`<span class="muted">${esc(j.prenom)} : pas de numéro</span>`}).join('')}</div>
-        <div class="preview">${esc(message(Mo,p,0,m))}</div>
       </div>`}).join('')}`).join('');
     })()}
   </section>`;
