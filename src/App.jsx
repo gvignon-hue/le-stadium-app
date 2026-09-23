@@ -844,6 +844,7 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
     tabs.push({ key: "reglages", label: "Réglages" });
   }
   tabs.push({ key: "notes", label: "Note" });
+  tabs.push({ key: "tournoi", label: "Tournoi" });
 
   return (
     <div>
@@ -893,6 +894,7 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
       {activeTab === "historique" && isManager && <HistoriqueTab oswald={oswald} />}
       {activeTab === "reglages" && isManager && <SettingsTab employees={employees} saveEmployees={saveEmployees} eventGroups={eventGroups} saveEventGroups={saveEventGroups} saveActions={saveActions} saveEventEntries={saveEventEntries} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} oswald={oswald} />}
       {activeTab === "notes" && <NotesTab profile={profile} notes={notes} saveNotes={saveNotes} oswald={oswald} />}
+      {activeTab === "tournoi" && <TournoiTab />}
     </div>
   );
 }
@@ -3883,6 +3885,16 @@ function NotesTab({ profile, notes, saveNotes, oswald }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------------- TOURNOI ---------------- */
+
+function TournoiTab() {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" style={{ height: "80vh", minHeight: "560px" }}>
+      <iframe src="/tournoi.html" title="Tournoi padel" style={{ width: "100%", height: "100%", border: "none" }} />
     </div>
   );
 }
