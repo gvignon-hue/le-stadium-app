@@ -114,6 +114,8 @@ tr.out td{opacity:.45;text-decoration:line-through}
 .pbtn{background:none;border:1px solid var(--line);border-radius:6px;padding:4px 8px;cursor:pointer;margin:2px 0}
 .pbtn.win{background:var(--done);border-color:var(--done-line);font-weight:700}
 .pbtn:disabled{border-color:transparent;cursor:default;padding-left:0}
+.side.dragover{outline:2px dashed var(--court);outline-offset:-2px;background:var(--soft)}
+.side[draggable=true]{cursor:grab}
 tr.done td{background:var(--done)}
 #logo{height:130px;width:auto;object-fit:contain;display:block;flex:none}
 .brand{display:flex;align-items:center;gap:28px;margin-bottom:18px}
@@ -635,16 +637,33 @@ function vPaires(){
       <tbody>${ps.map((p,i)=>{const ts=seedIds.indexOf(p.id);return`<tr class="${S.out[p.id]?'out':''}">
         <td><input type="checkbox" data-out="${p.id}" ${S.out[p.id]?'':'checked'} aria-label="Paire présente"></td>
         <td class="num">${i+1}</td>
-        <td>${ts>=0?`<span class="ts">TS${ts+1}</span>`:''}<strong>${esc(p.p[0].nom)}</strong> ${esc(p.p[0].prenom)} / <strong>${esc(p.p[1].nom)}</strong> ${esc(p.p[1].prenom)}</td>
+        <td>${ts>=0?`<span class="ts">TS${ts+1}</span>`:''}<strong>${esc(p.p[0].nom)}</strong> ${esc(p.p[0].prenom)} / <strong>${esc(p.p[1].nom)}</strong> ${esc(p.p[1].prenom)} <button class="btn ghost noprint" data-editpair="${p.id}" style="padding:3px 8px;margin-left:6px;font-size:12px" title="Remplacer ou modifier cette paire">✎ Modifier</button></td>
         <td class="num" style="white-space:nowrap;font-size:14px">${p.p.map(j=>j.tel?`<a href="tel:+${j.tel}" style="color:inherit">${esc(j.prenom)} : ${telFR(j.tel)}</a>`:`<span class="muted">${esc(j.prenom)} : pas de numéro</span>`).join('<br>')}</td>
         <td class="num muted">${p.p[0].cl??'NC'} + ${p.p[1].cl??'NC'}</td>
         <td class="muted" style="font-size:13px">${esc(cap(p.p[0].club))}${p.p[1].club!==p.p[0].club?'<br>'+esc(cap(p.p[1].club)):''}</td>
-        <td class="num"><strong>${p.poids}</strong></td></tr>`}).join('')}</tbody>
+        <td class="num"><strong>${p.poids}</strong></td></tr>
+        ${UI.editPair===p.id?`<tr class="noprint"><td colspan="7">
+          <div class="row" style="gap:20px;flex-wrap:wrap;align-items:flex-start">
+            ${[0,1].map(k=>`<div style="min-width:200px">
+              <div class="muted" style="font-size:12px;margin-bottom:6px;font-weight:700">Joueur ${k+1}</div>
+              <label class="f">Nom<input data-ef="${p.id}|${k}|nom" value="${esc(p.p[k].nom)}"></label>
+              <label class="f">Prénom<input data-ef="${p.id}|${k}|prenom" value="${esc(p.p[k].prenom)}"></label>
+              <label class="f">Téléphone<input data-ef="${p.id}|${k}|tel" value="${p.p[k].tel?telFR(p.p[k].tel):''}"></label>
+              <label class="f">Club<input data-ef="${p.id}|${k}|club" value="${esc(p.p[k].club)}"></label>
+              <label class="f">Classement<input type="number" data-ef="${p.id}|${k}|cl" value="${p.p[k].cl??''}"></label>
+            </div>`).join('')}
+          </div>
+          <p class="help" style="margin-top:8px">Remplacer les informations d'un joueur (par ex. une nouvelle personne qui prend la place d'un forfait) : sa place dans le tableau, son tirage et ses éventuels résultats déjà saisis ne changent pas.</p>
+          <div class="row" style="margin-top:8px">
+            <button class="btn" data-savepair="${p.id}">Enregistrer</button>
+            <button class="btn ghost" data-canceledit="1">Annuler</button>
+          </div>
+        </td></tr>`:''}`}).join('')}</tbody>
     </table></div>
   </section>
   <section class="card noprint">
     <h2>Tirage au sort</h2>
-    <p class="help">${S.settings.mode==='poules'?'Les paires sont réparties en serpentin dans les poules selon leur poids. Dans le tableau final, les 1ers de poule sont placés comme têtes de série et deux paires d\'une même poule sont séparées au maximum.':'Les têtes de série sont placées selon la règle FFT (TS1 en haut, TS2 en bas, TS3 et TS4 tirées au milieu, etc.). Les exempts vont aux meilleures paires, les autres sont tirées au sort.'} Toutes les paires du tableau final jouent ensuite leurs matchs de classement.</p>
+    <p class="help">${S.settings.mode==='poules'?'Les paires sont réparties en serpentin dans les poules selon leur poids. Dans le tableau final, les 1ers de poule sont placés comme têtes de série et deux paires d\'une même poule sont séparées au maximum.':'Les têtes de série sont placées selon la règle FFT (TS1 en bas, TS2 en haut, TS3 et TS4 tirées au milieu, etc.). Les exempts vont aux meilleures paires, les autres sont tirées au sort.'} Toutes les paires du tableau final jouent ensuite leurs matchs de classement.</p>
     ${S.draw?'<div class="msg">Un tableau existe déjà. Refaire le tirage efface les résultats saisis.</div>':''}
     <div class="row"><button class="btn ball" id="draw">${UI.redraw?'Confirmer le nouveau tirage':S.draw?'Refaire le tirage':'Faire le tirage'}</button>${UI.redraw?'<button class="btn ghost" id="drawCancel">Annuler</button>':''}</div>
   </section>`;
@@ -820,6 +839,22 @@ function bind(){
   q('[data-act="event"]',el=>el.onchange=()=>{S.event=el.value;S.draw=null;save();render()});
   q('[data-act="format"]',el=>el.onchange=()=>{const f=FORMATS[el.value];Object.assign(S.settings,{format:el.value,dur:f.dur,rest:f.rest});save();render()});
   q('[data-out]',el=>el.onchange=()=>{if(el.checked)delete S.out[el.dataset.out];else S.out[el.dataset.out]=1;save();render()});
+  q('[data-editpair]',el=>el.onclick=()=>{UI.editPair=UI.editPair===el.dataset.editpair?null:el.dataset.editpair;render()});
+  q('[data-canceledit]',el=>el.onclick=()=>{UI.editPair=null;render()});
+  q('[data-savepair]',el=>el.onclick=()=>{
+    const id=el.dataset.savepair,pair=S.all.find(x=>x.id===id);
+    if(!pair){UI.editPair=null;render();return}
+    document.querySelectorAll(`[data-ef^="${id}|"]`).forEach(inp=>{
+      const[,k,field]=inp.dataset.ef.split('|');let v=inp.value.trim();
+      if(field==='tel')v=normTel(v);
+      else if(field==='cl')v=v?Number(v):null;
+      else if(field==='nom')v=v.toUpperCase();
+      else if(field==='prenom')v=cap(v);
+      pair.p[k][field]=v;
+    });
+    pair.poids=(Number(pair.p[0].cl)||99999)+(Number(pair.p[1].cl)||99999);
+    UI.editPair=null;save();render();
+  });
   q('[data-win]',el=>el.onclick=()=>{const id=el.dataset.win,p=el.dataset.pid;S.draw.winners[id]=S.draw.winners[id]===p?'':p;save();render()});
   q('[data-score]',el=>el.onchange=()=>{
     const id=el.dataset.score,D=S.draw,{sets,txt}=parseScore(el.value);
@@ -847,6 +882,19 @@ function bind(){
   const dc=document.getElementById('drawCancel');if(dc)dc.onclick=()=>{UI.redraw=0;render()};
   const rt=document.getElementById('resetTimes');if(rt)rt.onclick=()=>{S.draw.times={};S.draw.courts={};save();render()};
   const sb=document.getElementById('swapBtn');if(sb)sb.onclick=()=>{swapPairs(document.getElementById('swapA').value,document.getElementById('swapB').value);render()};
+  document.querySelectorAll('.side[data-pid]').forEach(el=>{
+    const pid=el.dataset.pid;
+    if(!pid)return;
+    el.draggable=true;
+    el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',pid);e.dataTransfer.effectAllowed='move'});
+    el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('dragover')});
+    el.addEventListener('dragleave',()=>el.classList.remove('dragover'));
+    el.addEventListener('drop',e=>{
+      e.preventDefault();el.classList.remove('dragover');
+      const src=e.dataTransfer.getData('text/plain');
+      if(src&&src!==pid){swapPairs(src,pid);render()}
+    });
+  });
   const rs=document.getElementById('reset');if(rs)rs.onclick=()=>{if(!UI.reset){UI.reset=1;render();return}UI.reset=0;const keep=S.settings;S=fresh();S.settings=keep;save();render()};
   const f=document.getElementById('file');if(f)f.onchange=()=>f.files[0]&&importFile(f.files[0]);
   const dr=document.getElementById('drop');
