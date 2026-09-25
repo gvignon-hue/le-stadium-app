@@ -837,6 +837,7 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
     { key: "todo", label: "To do", badge: pendingActions },
     { key: "communication", label: "Communication", redBadge: commLate, orangeBadge: commSoon },
     { key: "stock", label: "Stock", badge: stockChecked.length },
+    { key: "tournoi", label: "Tournoi" },
   ];
   if (isManager) {
     tabs.push({ key: "cp", label: "CP" });
@@ -844,7 +845,6 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
     tabs.push({ key: "reglages", label: "Réglages" });
   }
   tabs.push({ key: "notes", label: "Note" });
-  tabs.push({ key: "tournoi", label: "Tournoi" });
 
   return (
     <div>
