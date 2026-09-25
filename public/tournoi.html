@@ -55,6 +55,9 @@ textarea{width:100%;min-height:90px;resize:vertical}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
 .btn.ball{background:var(--ball);color:var(--ball-ink)}
 .btn.wa{background:var(--wa);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;font-size:14px}
+.btn.icon-sm{padding:5px 10px 5px 8px;font-size:13px;display:inline-flex;align-items:center;gap:5px;border-radius:20px}
+.btn.icon-sm svg{width:15px;height:15px;flex-shrink:0}
+.btn.sms{background:var(--court-deep);color:#fff;text-decoration:none}
 .btn.danger{background:transparent;color:var(--danger);border:1px solid var(--line)}
 .drop{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;border:2px dashed var(--line);border-radius:10px;padding:34px;text-align:center;cursor:pointer;background:var(--soft)}
 .drop.over{border-color:var(--court)}
@@ -213,6 +216,8 @@ Merci de prévenir ton partenaire et de nous confirmer votre venue.
 À {jour} !
 La team Stadium`;
 const TPL_SMS_V1="{tournoi} : convocation le {date} à {heure}. Merci de confirmer ta venue et de prévenir ton partenaire. À {jour} ! La team Stadium";
+const ICON_WA='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.39 1.26 4.81L2 22l5.42-1.36a9.9 9.9 0 0 0 4.62 1.17h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.13-2.9-7C17.17 3.03 14.68 2 12.04 2zm0 1.8c2.16 0 4.19.84 5.72 2.37a8.06 8.06 0 0 1 2.37 5.74c0 4.47-3.64 8.11-8.1 8.11a8.1 8.1 0 0 1-4.11-1.12l-.29-.17-3.02.76.8-2.94-.19-.3a8.06 8.06 0 0 1-1.24-4.33c0-4.47 3.65-8.12 8.12-8.12zm-4.5 4.3c-.16 0-.42.06-.64.3-.22.24-.85.83-.85 2.02 0 1.19.87 2.34.99 2.5.12.16 1.7 2.6 4.14 3.64 2.03.86 2.44.69 2.88.65.44-.04 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.44-1.34-1.68-.14-.24-.02-.37.1-.49.11-.1.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.32-.75-1.8-.2-.47-.4-.4-.55-.41h-.47z"/></svg>';
+const ICON_PHONE='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.5.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.5.1.4 0 .8-.2 1L6.6 10.8z"/></svg>';
 const FORMATS={A:{l:'Format A (3 sets à 6 jeux)',dur:90,rest:90,sets:['S1','S2','S3'],need:2,ex:'6 4 3 6 6 2'},B:{l:'Format B (2 sets à 6 jeux, super tie-break)',dur:75,rest:60,sets:['S1','S2','TB'],need:2,ex:'6 4 3 6 10 8'},C:{l:'Format C (2 sets à 4 jeux, super tie-break)',dur:60,rest:30,sets:['S1','S2','TB'],need:2,ex:'4 2 2 4 10 7'},D:{l:'Format D (1 set à 9 jeux)',dur:45,rest:30,sets:['Set'],need:1,ex:'9 6'},E:{l:'Format E (super tie-break à 10 points)',dur:20,rest:15,sets:['TB'],need:1,ex:'10 8'}};
 const fmt=()=>FORMATS[S.settings.format]||FORMATS.D;
 const scoreStr=v=>Array.isArray(v)?v.filter(x=>x&&x[0]!==''&&x[1]!=='').map(x=>x.join('/')).join(' '):(v||'');
@@ -735,8 +740,8 @@ function vConvoc(){
       ${groups[t].map(p=>{const m=first[p.id];return`<div class="pair-conv">
         <div><strong>${esc(label(p))}</strong><div class="muted" style="font-size:14px">Arrivée ${toHM(m.time-early)}, match M${m.num} à ${toHM(m.time)}, terrain T${m.court}</div></div>
         <div class="acts">${p.p.map((j,k)=>{const key=p.id+'-'+k;const txtWa=message(Mo,p,k,m,'wa');
-          const wa=j.tel?`<a class="btn wa" target="_blank" rel="noopener" data-sent="${key}" href="https://wa.me/${j.tel}?text=${encodeURIComponent(txtWa)}">WhatsApp ${esc(j.prenom)}</a>`:`<span class="muted">${esc(j.prenom)} : pas de numéro</span>`;
-          const sms=(k===0&&j.tel)?`<a class="btn" data-sent="${key}-sms" href="${smsHref(j.tel,message(Mo,p,k,m,'sms'))}">SMS ${esc(j.prenom)}</a>`:'';
+          const wa=j.tel?`<a class="btn wa icon-sm" target="_blank" rel="noopener" data-sent="${key}" href="https://wa.me/${j.tel}?text=${encodeURIComponent(txtWa)}" title="WhatsApp ${esc(j.prenom)}">${ICON_WA}${esc(j.prenom)}</a>`:`<span class="muted">${esc(j.prenom)} : pas de numéro</span>`;
+          const sms=j.tel?`<a class="btn sms icon-sm" data-sent="${key}-sms" href="${smsHref(j.tel,message(Mo,p,k,m,'sms'))}" title="SMS ${esc(j.prenom)}">${ICON_PHONE}${esc(j.prenom)}</a>`:'';
           return wa+sms+(S.sent[key]?'<span class="sent">envoyé</span>':'')}).join('')}</div>
       </div>`}).join('')}`}).join('');
     })()}
