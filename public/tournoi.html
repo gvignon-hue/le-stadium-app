@@ -379,7 +379,7 @@ function makePoolDraw(){
   const ents=[...direct.map(p=>({p:p.id,g:-1}))];
   for(let r=1;r<=c.Q;r++)pools.forEach((_,i)=>ents.push({q:[i,r],g:i}));
   const size=c.size;let byes=size-ents.length;
-  const rank=[0,size-1];
+  const rank=[size-1,0];
   for(let L=2;2**(L-1)<size;L++){const step=size/2**(L-1);for(let j=1;j<2**(L-1);j+=2)rank.push(j*step-1,j*step)}
   const slots=Array(size).fill(undefined),where=[];
   const nSeeds=Math.min(ents.length,c.X+c.P,size/2);
@@ -403,6 +403,31 @@ function makePoolDraw(){
   S.draw={mode:'poules',size,slots,seeds:heads,pools,qual:c.Q,pm,winners:{},scores:{},times:{},courts:{}};
   S.sent={};save();return true;
 }
+function findPairLocation(id){
+  const D=S.draw;
+  if(D.slots){const i=D.slots.indexOf(id);if(i>=0)return{type:'slot',i}}
+  if(D.pools){for(let pi=0;pi<D.pools.length;pi++){const j=D.pools[pi].indexOf(id);if(j>=0)return{type:'pool',pi,j}}}
+  return null;
+}
+function swapPairs(idA,idB){
+  if(!idA||!idB||idA===idB){UI.err='Choisissez deux paires différentes.';return false}
+  const D=S.draw;
+  const locA=findPairLocation(idA),locB=findPairLocation(idB);
+  if(!locA||!locB){UI.err="Une des deux paires est introuvable dans le tableau.";return false}
+  const hadResults=Object.keys(D.winners||{}).length||Object.keys(D.scores||{}).length||Object.keys(D.times||{}).length;
+  if(hadResults&&!confirm('Échanger ces deux paires réinitialise les scores, heures et terrains déjà saisis. Continuer ?'))return false;
+  const touchedPools=new Set();
+  function place(loc,id){if(loc.type==='slot')D.slots[loc.i]=id;else{D.pools[loc.pi][loc.j]=id;touchedPools.add(loc.pi)}}
+  place(locA,idB);place(locB,idA);
+  touchedPools.forEach(pi=>{
+    D.pm=(D.pm||[]).filter(x=>x.pool!==pi);
+    roundRobin(D.pools[pi]).forEach((ms,r)=>ms.forEach(([a,b],k)=>D.pm.push({id:`P${pi}-${r}-${k}`,pool:pi,round:r,a,b})));
+  });
+  D.winners={};D.scores={};D.times={};D.courts={};S.sent={};
+  save();
+  UI.ok='Paires échangées.';
+  return true;
+}
 function makeDraw(){
   if(S.settings.mode==='poules')return makePoolDraw();
   const ps=active(),n=ps.length;
@@ -410,7 +435,7 @@ function makeDraw(){
   let size=2;while(size<n)size*=2;
   const nSeeds=Math.min(n,S.settings.seeds==='auto'?autoSeeds(size):Number(S.settings.seeds));
   let byes=size-n;
-  const rank=[0,size-1];
+  const rank=[size-1,0];
   for(let L=2;2**(L-1)<size;L++){const step=size/2**(L-1),g=[];for(let j=1;j<2**(L-1);j+=2)g.push(j*step-1,j*step);rank.push(...shuffle(g))}
   const slots=Array(size).fill(undefined);
   for(let k=0;k<nSeeds;k++)slots[rank[k]]=ps[k].id;
@@ -682,6 +707,15 @@ function vTableau(){
     <p class="help" style="margin:0">Tapez le score en bas du match (ex. « 9 6 » devient 9/6) : le vainqueur est désigné automatiquement. Vous pouvez aussi cliquer sur une paire.</p>
     <button class="btn" id="pdfBtn">Extraire en PDF</button>
   </div>
+  <section class="card noprint">
+    <h2>Échanger deux paires</h2>
+    <p class="help">Pour adapter le tableau aux besoins de chacun (horaires, contraintes). Échanger remet à zéro les scores, heures et terrains déjà saisis.</p>
+    <div class="row">
+      <label class="f">Paire 1<select id="swapA">${active().map(p=>`<option value="${p.id}">${esc(label(p))}</option>`).join('')}</select></label>
+      <label class="f">Paire 2<select id="swapB">${active().map((p,i)=>`<option value="${p.id}" ${i===1?'selected':''}>${esc(label(p))}</option>`).join('')}</select></label>
+      <button class="btn ghost" id="swapBtn" style="align-self:flex-end">Échanger</button>
+    </div>
+  </section>
   ${Mo.stand.length?`<h2 class="sect" style="font-size:30px;margin:6px 0 14px">Poules</h2><section class="card"><div class="pools">${Mo.stand.map((st,i)=>poolBlock(Mo,st,i)).join('')}</div></section>`:''}
   ${tabBlock(Mo,main)}
   ${shown.length?`<h2 class="sect" style="font-size:30px;margin:28px 0 14px">Matchs de classement</h2>${groups.map(([g,ms])=>groupBlock(Mo,g,ms)).join('')}`:''}
@@ -812,6 +846,7 @@ function bind(){
   const d=document.getElementById('draw');if(d)d.onclick=()=>{if(S.draw&&!UI.redraw){UI.redraw=1;render();return}UI.redraw=0;if(makeDraw()){S.tab='tableau';UI.ok='Nouveau tirage effectué.';window.scrollTo(0,0)}save();render()};
   const dc=document.getElementById('drawCancel');if(dc)dc.onclick=()=>{UI.redraw=0;render()};
   const rt=document.getElementById('resetTimes');if(rt)rt.onclick=()=>{S.draw.times={};S.draw.courts={};save();render()};
+  const sb=document.getElementById('swapBtn');if(sb)sb.onclick=()=>{swapPairs(document.getElementById('swapA').value,document.getElementById('swapB').value);render()};
   const rs=document.getElementById('reset');if(rs)rs.onclick=()=>{if(!UI.reset){UI.reset=1;render();return}UI.reset=0;const keep=S.settings;S=fresh();S.settings=keep;save();render()};
   const f=document.getElementById('file');if(f)f.onchange=()=>f.files[0]&&importFile(f.files[0]);
   const dr=document.getElementById('drop');
