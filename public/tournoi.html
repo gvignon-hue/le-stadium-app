@@ -728,16 +728,11 @@ function groupMessage(t){
 function vConvoc(){
   const s=S.settings,Mo=model(),real=Mo.real.slice().sort((x,y)=>x.time-y.time||x.court-y.court);
   const first={};real.forEach(m=>[m.a,m.b].forEach(p=>{if(p&&!first[p])first[p]=m}));
+  const ex=active()[0],exM=ex&&first[ex.id];
   return`
   <section class="card noprint">
     <h2>Envoyer les convocations</h2>
     <p class="help">Chaque bouton ouvre WhatsApp ou l'app SMS avec le message prêt : il ne reste qu'à appuyer sur Envoyer. Le SMS individuel est proposé aux deux joueurs ; le SMS groupé n'est envoyé qu'au 1er joueur de chaque équipe. La convocation porte sur le premier match de la paire, avec une arrivée 15 min avant ce match précis (pas avant le tour entier). Les paires sont regroupées par heure d'arrivée.</p>
-    ${(()=>{
-      const ex=active()[0],exM=ex&&first[ex.id];
-      if(!exM)return'';
-      return`<div class="preview" style="margin-bottom:8px"><div class="muted" style="font-size:13px;margin-bottom:4px">Exemple WhatsApp</div>${esc(message(Mo,ex,0,exM,'wa'))}</div>
-      <div class="preview" style="margin-bottom:18px"><div class="muted" style="font-size:13px;margin-bottom:4px">Exemple SMS</div>${esc(message(Mo,ex,0,exM,'sms'))}</div>`;
-    })()}
     ${(()=>{
       const early=Number(s.early)||0,groups={};
       active().forEach(p=>{const m=first[p.id];if(!m)return;const at=m.time-early;(groups[at]=groups[at]||[]).push(p)});
@@ -759,16 +754,19 @@ function vConvoc(){
     <h2>Message de convocation WhatsApp</h2>
     <p class="help">Variables : {prenom} {partenaire} {tournoi} {date} {jour} {heure} (heure d'arrivée, ${s.early} min avant le match) {match} (heure du match) {piste} {adversaire}</p>
     <textarea data-set="tplWa">${esc(s.tplWa)}</textarea>
+    ${exM?`<div class="preview" style="margin-top:12px"><div class="muted" style="font-size:13px;margin-bottom:4px">Exemple</div>${esc(message(Mo,ex,0,exM,'wa'))}</div>`:''}
   </section>
   <section class="card noprint">
     <h2>Message de convocation SMS</h2>
     <p class="help">Modèle séparé, envoyé individuellement à chaque joueur qui a un numéro. Mêmes variables que ci-dessus. Un texte court reste dans un seul SMS.</p>
     <textarea data-set="tplSms">${esc(s.tplSms)}</textarea>
+    ${exM?`<div class="preview" style="margin-top:12px"><div class="muted" style="font-size:13px;margin-bottom:4px">Exemple</div>${esc(message(Mo,ex,0,exM,'sms'))}</div>`:''}
   </section>
   <section class="card noprint">
     <h2>Message de convocation SMS groupé</h2>
     <p class="help">Envoyé au 1er joueur de chaque équipe d'un même créneau, en un seul SMS à plusieurs destinataires. Variables disponibles : {tournoi} {date} {jour} {heure} (heure d'arrivée du créneau). Pas de {prenom}/{adversaire}/{piste} puisque le message part à plusieurs équipes différentes.</p>
     <textarea data-set="tplSmsGroup">${esc(s.tplSmsGroup)}</textarea>
+    ${exM?`<div class="preview" style="margin-top:12px"><div class="muted" style="font-size:13px;margin-bottom:4px">Exemple</div>${esc(groupMessage(exM.time-(Number(s.early)||0)))}</div>`:''}
   </section>`;
 }
 function message(Mo,p,k,m,ch){
