@@ -644,17 +644,18 @@ function vPaires(){
       <div class="muted" style="padding-bottom:8px">Tableau de ${size} : ${act.length} paires, ${size-act.length} exempt${size-act.length>1?'s':''}</div>`}
     </div>
     <div class="scroll"><table>
-      <thead><tr><th>Joue</th><th>Présence</th><th>Payé</th><th>#</th><th>Paire</th><th>Téléphones</th><th>Clubs</th><th class="num">Poids</th></tr></thead>
+      <thead><tr><th>Joue</th><th>Présence</th><th>Payé</th><th>#</th><th>Paire</th><th>Téléphones</th><th>Clubs</th><th class="num">Poids</th><th></th></tr></thead>
       <tbody>${ps.map((p,i)=>{const ts=seedIds.indexOf(p.id);return`<tr class="${S.out[p.id]?'out':''}">
         <td><input type="checkbox" data-out="${p.id}" ${S.out[p.id]?'':'checked'} aria-label="Paire présente"></td>
         <td><input type="checkbox" data-confirmed="${p.id}" ${S.confirmed[p.id]?'checked':''} aria-label="Présence confirmée"></td>
-        <td><input type="checkbox" data-paid="${p.id}" ${S.paid[p.id]?'checked':''} aria-label="A payé"></td>
+        <td style="white-space:nowrap">${[0,1].map(k=>{const pk=p.id+'-'+k;return`<label style="display:flex;align-items:center;gap:5px;font-size:12px;margin:2px 0"><input type="checkbox" data-paid="${pk}" ${S.paid[pk]?'checked':''} aria-label="${esc(p.p[k].prenom)} a payé">${esc(p.p[k].prenom)}</label>`}).join('')}</td>
         <td class="num">${i+1}</td>
-        <td>${ts>=0?`<span class="ts">TS${ts+1}</span>`:''}<strong>${esc(p.p[0].nom)}</strong> ${esc(p.p[0].prenom)} / <strong>${esc(p.p[1].nom)}</strong> ${esc(p.p[1].prenom)} <button class="btn ghost noprint" data-editpair="${p.id}" style="padding:3px 8px;margin-left:6px;font-size:12px" title="Remplacer ou modifier cette paire">✎ Modifier</button></td>
+        <td>${ts>=0?`<span class="ts">TS${ts+1}</span>`:''}<strong>${esc(p.p[0].nom)}</strong> ${esc(p.p[0].prenom)}<br><strong>${esc(p.p[1].nom)}</strong> ${esc(p.p[1].prenom)}</td>
         <td class="num" style="white-space:nowrap;font-size:14px">${p.p.map(j=>j.tel?`<a href="tel:+${j.tel}" style="color:inherit">${esc(j.prenom)} : ${telFR(j.tel)}</a>`:`<span class="muted">${esc(j.prenom)} : pas de numéro</span>`).join('<br>')}</td>
         <td class="muted" style="font-size:13px">${esc(cap(p.p[0].club))}${p.p[1].club!==p.p[0].club?'<br>'+esc(cap(p.p[1].club)):''}</td>
-        <td class="num"><strong>${p.poids}</strong></td></tr>
-        ${UI.editPair===p.id?`<tr class="noprint"><td colspan="8">
+        <td class="num"><strong>${p.poids}</strong></td>
+        <td><button class="btn ghost noprint" data-editpair="${p.id}" style="padding:3px 8px;font-size:12px" title="Remplacer ou modifier cette paire">✎</button></td></tr>
+        ${UI.editPair===p.id?`<tr class="noprint"><td colspan="9">
           <div class="row" style="gap:20px;flex-wrap:wrap;align-items:flex-start">
             ${[0,1].map(k=>`<div style="min-width:200px">
               <div class="muted" style="font-size:12px;margin-bottom:6px;font-weight:700">Joueur ${k+1}</div>
