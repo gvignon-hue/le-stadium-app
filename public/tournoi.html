@@ -651,7 +651,7 @@ function vPaires(){
         <td style="white-space:nowrap">${[0,1].map(k=>{const pk=p.id+'-'+k;return`<label style="display:flex;align-items:center;gap:5px;font-size:12px;margin:2px 0"><input type="checkbox" data-paid="${pk}" ${S.paid[pk]?'checked':''} aria-label="${esc(p.p[k].prenom)} a payé">${esc(p.p[k].prenom)}</label>`}).join('')}</td>
         <td class="num">${i+1}</td>
         <td>${ts>=0?`<span class="ts">TS${ts+1}</span>`:''}<strong>${esc(p.p[0].nom)}</strong> ${esc(p.p[0].prenom)}<br><strong>${esc(p.p[1].nom)}</strong> ${esc(p.p[1].prenom)}</td>
-        <td class="num" style="white-space:nowrap;font-size:14px">${p.p.map(j=>j.tel?`<a href="tel:+${j.tel}" style="color:inherit">${esc(j.prenom)} : ${telFR(j.tel)}</a>`:`<span class="muted">${esc(j.prenom)} : pas de numéro</span>`).join('<br>')}</td>
+        <td class="num" style="white-space:nowrap;font-size:14px">${p.p.map(j=>j.tel?`<a href="tel:+${j.tel}" target="_top" style="color:inherit">${esc(j.prenom)} : ${telFR(j.tel)}</a>`:`<span class="muted">${esc(j.prenom)} : pas de numéro</span>`).join('<br>')}</td>
         <td class="muted" style="font-size:13px">${esc(cap(p.p[0].club))}${p.p[1].club!==p.p[0].club?'<br>'+esc(cap(p.p[1].club)):''}</td>
         <td class="num"><strong>${p.poids}</strong></td>
         <td><button class="btn ghost noprint" data-editpair="${p.id}" style="padding:3px 8px;font-size:12px" title="Remplacer ou modifier cette paire">✎</button></td></tr>
@@ -806,13 +806,13 @@ function vConvoc(){
       return times.map(t=>{
       const tels=[...new Set(groups[t].map(p=>p.p[0]).filter(j=>j&&j.tel).map(j=>j.tel))];
       return`
-      <h3 style="margin:18px 0 8px;color:var(--court)">Arrivée ${toHM(t)} <span class="muted" style="font-weight:400;font-size:14px">(${groups[t].length} paire${groups[t].length>1?'s':''})</span>${tels.length>1?` <a class="btn" style="margin-left:8px" href="${smsGroupHref(tels,groupMessage(t))}">SMS groupé aux 1ers joueurs (${tels.length})</a>`:''}</h3>
+      <h3 style="margin:18px 0 8px;color:var(--court)">Arrivée ${toHM(t)} <span class="muted" style="font-weight:400;font-size:14px">(${groups[t].length} paire${groups[t].length>1?'s':''})</span>${tels.length>1?` <a class="btn" style="margin-left:8px" target="_top" href="${smsGroupHref(tels,groupMessage(t))}">SMS groupé aux 1ers joueurs (${tels.length})</a>`:''}</h3>
       ${groups[t].map(p=>{const m=first[p.id];return`<div class="pair-conv">
         <div><strong>${esc(label(p))}</strong><div class="muted" style="font-size:14px">Arrivée ${toHM(m.time-early)}, match M${m.num} à ${toHM(m.time)}, terrain T${m.court}</div></div>
         <div class="acts">${p.p.map((j,k)=>{const key=p.id+'-'+k;
           if(!j.tel)return`<span class="muted">${esc(j.prenom)} : pas de numéro</span>`;
-          const sms=`<a class="btn sms icon-sm" data-sent="${key}-conv" href="${smsHref(j.tel,message(Mo,p,k,m,'sms'))}" title="SMS convocation ${esc(j.prenom)}">${ICON_PHONE}${esc(j.prenom)}</a>${S.sent[key+'-conv']?'<span class="sent">envoyée</span>':''}`;
-          const relance=`<a class="btn relance icon-sm" data-sent="${key}-relance" href="${smsHref(j.tel,message(Mo,p,k,m,'relance'))}" title="SMS relance ${esc(j.prenom)}">${ICON_BELL}${esc(j.prenom)}</a>${S.sent[key+'-relance']?'<span class="sent">envoyée</span>':''}`;
+          const sms=`<a class="btn sms icon-sm" target="_top" data-sent="${key}-conv" href="${smsHref(j.tel,message(Mo,p,k,m,'sms'))}" title="SMS convocation ${esc(j.prenom)}">${ICON_PHONE}${esc(j.prenom)}</a>${S.sent[key+'-conv']?'<span class="sent">envoyée</span>':''}`;
+          const relance=`<a class="btn relance icon-sm" target="_top" data-sent="${key}-relance" href="${smsHref(j.tel,message(Mo,p,k,m,'relance'))}" title="SMS relance ${esc(j.prenom)}">${ICON_BELL}${esc(j.prenom)}</a>${S.sent[key+'-relance']?'<span class="sent">envoyée</span>':''}`;
           return sms+relance}).join('')}</div>
       </div>`}).join('')}`}).join('');
     })()}
