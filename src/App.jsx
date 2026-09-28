@@ -3892,9 +3892,22 @@ function NotesTab({ profile, notes, saveNotes, oswald }) {
 /* ---------------- TOURNOI ---------------- */
 
 function TournoiTab() {
+  const [h, setH] = useState(900);
+  useEffect(() => {
+    function onMsg(e) {
+      if (e.origin !== window.location.origin) return;
+      if (e.data && e.data.type === "tournoi-height" && typeof e.data.h === "number") {
+        setH(Math.max(600, Math.ceil(e.data.h) + 4));
+      }
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" style={{ height: "80vh", minHeight: "560px" }}>
-      <iframe src="/tournoi.html" title="Tournoi padel" style={{ width: "100%", height: "100%", border: "none" }} />
+    <div style={{ width: "min(97vw, 2000px)", position: "relative", left: "50%", transform: "translateX(-50%)" }}>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <iframe src="/tournoi.html" title="Tournoi padel" scrolling="no" style={{ width: "100%", height: h + "px", border: "none", display: "block" }} />
+      </div>
     </div>
   );
 }
