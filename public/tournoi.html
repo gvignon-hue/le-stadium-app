@@ -130,6 +130,7 @@ tr.done td{background:var(--done)}
 .side:last-of-type{border-bottom:0}
 .side:disabled,.side[aria-disabled=true]{cursor:default}
 .ts[data-tsid]{cursor:pointer}
+.side[data-pid]{user-select:none}
 .side.win{font-weight:700;color:var(--ink)}
 .side .tbd{color:var(--muted);font-style:italic}
 .match input.score{width:100%;border:0;border-top:1px solid var(--line);border-radius:0;padding:6px 10px;font-size:13px;background:var(--soft)}
@@ -257,7 +258,7 @@ if(!S.confirmed)S.confirmed={};
 if(!S.paid)S.paid={};
 if(S.settings.tplWa===TPL_WA_V1)S.settings.tplWa=TPL_WA;
 if(S.settings.tplSms===TPL_SMS_V1)S.settings.tplSms=TPL_SMS;
-let UI={};
+let UI={};let winTimer=null;
 /* Sauvegarde : dans le navigateur + partagée en ligne (staff) via Supabase */
 const SUPABASE_URL='https://sjqtjhsaljwrstquqnli.supabase.co';
 const SUPABASE_KEY='sb_publishable_5hSol31UR_jpvwYRIc4Cjg_TFulzedg';
@@ -418,17 +419,27 @@ function makePoolDraw(){
   S.sent={};save();return true;
 }
 function editSeed(id){
-  const D=S.draw;if(!D)return;
-  const k=D.seeds.indexOf(id);if(k<0)return;
-  const v=prompt(`Nouveau numéro de tête de série pour ${label(byId(id))} (actuel : TS${k+1}). Si ce numéro est déjà pris, les deux paires échangent leur TS.`,String(k+1));
+  const D=S.draw;if(!D||!id)return;
+  const k=D.seeds.indexOf(id),nm=label(byId(id));
+  const msg=k>=0
+    ?`${nm} est TS${k+1}.\nNouveau numéro de TS (si ce numéro est déjà pris, les deux paires échangent leur TS).\nLaisser vide pour retirer le TS de cette paire.`
+    :`${nm} n'a pas de tête de série.\nNuméro de TS à lui donner (si ce numéro est déjà pris, il est retiré à l'autre paire).`;
+  const v=prompt(msg,k>=0?String(k+1):'');
   if(v===null)return;
-  const n=parseInt(v,10);
+  const t=v.trim();
+  const trim=()=>{while(D.seeds.length&&D.seeds[D.seeds.length-1]==null)D.seeds.pop()};
+  if(t===''){
+    if(k>=0){D.seeds[k]=null;trim();UI.ok='TS retiré.';save();render()}
+    return;
+  }
+  const n=parseInt(t,10);
   if(!n||n<1||n>99){UI.err='Numéro de tête de série invalide.';render();return}
-  if(n-1===k)return;
-  const other=D.seeds[n-1];
+  if(k>=0&&n-1===k)return;
   while(D.seeds.length<n)D.seeds.push(null);
-  D.seeds[n-1]=id;D.seeds[k]=other||null;
-  while(D.seeds.length&&D.seeds[D.seeds.length-1]==null)D.seeds.pop();
+  const other=D.seeds[n-1];
+  D.seeds[n-1]=id;
+  if(k>=0)D.seeds[k]=other||null;
+  trim();
   UI.ok='Tête de série modifiée.';
   save();render();
 }
@@ -883,7 +894,7 @@ function bind(){
     pair.poids=(Number(pair.p[0].cl)||99999)+(Number(pair.p[1].cl)||99999);
     UI.editPair=null;save();render();
   });
-  q('[data-win]',el=>el.onclick=()=>{const id=el.dataset.win,p=el.dataset.pid;S.draw.winners[id]=S.draw.winners[id]===p?'':p;save();render()});
+  q('[data-win]',el=>el.onclick=()=>{clearTimeout(winTimer);winTimer=setTimeout(()=>{const id=el.dataset.win,p=el.dataset.pid;S.draw.winners[id]=S.draw.winners[id]===p?'':p;save();render()},260)});
   q('[data-score]',el=>el.onchange=()=>{
     const id=el.dataset.score,D=S.draw,{sets,txt}=parseScore(el.value);
     D.scores[id]=txt;const m=model().M[id],w=autoWin(sets);
@@ -911,12 +922,13 @@ function bind(){
   const rt=document.getElementById('resetTimes');if(rt)rt.onclick=()=>{S.draw.times={};S.draw.courts={};save();render()};
   document.querySelectorAll('.ts[data-tsid]').forEach(el=>{
     el.addEventListener('click',e=>e.stopPropagation());
-    el.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();editSeed(el.dataset.tsid)});
+    el.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();clearTimeout(winTimer);editSeed(el.dataset.tsid)});
   });
   document.querySelectorAll('.side[data-pid]').forEach(el=>{
     const pid=el.dataset.pid;
     if(!pid)return;
     el.draggable=true;
+    el.addEventListener('dblclick',e=>{e.preventDefault();clearTimeout(winTimer);editSeed(pid)});
     el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',pid);e.dataTransfer.effectAllowed='move'});
     el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('dragover')});
     el.addEventListener('dragleave',()=>el.classList.remove('dragover'));
