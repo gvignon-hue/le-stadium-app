@@ -497,7 +497,7 @@ function model(){
   const isBye=src=>{if(src===null)return true;if(src.p||src.q)return false;const m=M[src.m];return src.t==='w'?(m.byeA&&m.byeB):m.bye};
   function build(lo,ents,tab,depth,parent){
     if(ents.length===1){places.push({place:lo,src:ents[0]});return}
-    if(!tab){tab={lo,hi:lo+ents.length-1,rounds:[],main:!tabs.length,depth0:depth};tab.group=!parent||parent.main?tab:parent.group;tabs.push(tab)}
+    if(!tab){tab={lo,hi:lo+ents.length-1,rounds:[],main:!tabs.length,depth0:depth};tab.group=!parent||parent.main?tab:parent.group;tab.early=!tab.main&&parent?(parent.main?depth===1:!!parent.early):false;tabs.push(tab)}
     const round={n:ents.length,lo,matches:[]};tab.rounds.push(round);
     const W=[],L=[];
     for(let i=0;i<ents.length;i+=2){
@@ -552,16 +552,14 @@ function model(){
     if(m.bye)return Math.max(ready(m.sa),ready(m.sb));
     return m.time==null?undefined:m.time+dur+rest;
   };
-  // Phases : un tour du tableau final, puis les matchs de classement devenus jouables, etc.
-  // Tous les matchs d'une phase partent ensemble ; la phase suivante attend la fin de la précédente.
-  // La finale est donc toujours le dernier match.
-  const realFeed=src=>{if(!src||src.p||src.q)return[];const m=M[src.m];return m.bye?[...realFeed(m.sa),...realFeed(m.sb)]:[m]};
+  // Phases (ordre des matchs). Chaque phase attend la fin de la précédente. Pour un tableau de 16 :
+  //  0 : 1/8 · 1 : classement 9/16 · 2 : 1/4 · 3 : classement 9/12 et 13/16 ·
+  //  4 : 1/2 + classement 5/8 · 5 : classement 9/10, 11/12, 13/14, 15/16 · 6 : finale + 3/4, 5/6, 7/8.
+  // Règle : phase = 2 x (nombre de matchs déjà joués), moins 1 pour les paires qui ont perdu leur tout premier match.
   const off=pms.length?Math.max(...pms.map(m=>m.round))+1:0;
   real.forEach(m=>{
     if(m.isPool){m.phase=m.round-off;return}
-    if(m.tab.main){m.phase=2*m.depth;return}
-    const mx=Math.max(-1,...[...realFeed(m.sa),...realFeed(m.sb)].map(x=>x.phase));
-    m.phase=mx%2===0?mx+1:mx+2;
+    m.phase=2*m.depth-(m.tab.early?1:0);
   });
   const last={};
   let t=start;
@@ -578,6 +576,10 @@ function model(){
     t=end;
   });
   real.slice().sort((x,y)=>x.time-y.time||x.court-y.court).forEach((m,i)=>m.num=i+1);
+  // Créneaux proposés : horaires déjà utilisés + heure où un terrain se libère après chaque match (durée d'un match)
+  const slots=(()=>{const set=new Set([start]);
+    real.forEach(x=>{set.add(x.time);set.add(x.time+dur)});
+    return[...set].sort((a,b)=>a-b)})();
   places.forEach(p=>{p.pair=res(p.src);p.bye=isBye(p.src)});
   const rhi=(lo,hi)=>lo+places.filter(p=>!p.bye&&p.place>=lo&&p.place<=hi).length-1;
   tabs.forEach(t=>{t.rhi=rhi(t.lo,t.hi);t.rounds.forEach(r=>r.rhi=rhi(r.lo,r.lo+r.n-1))});
@@ -586,7 +588,10 @@ function model(){
   const poolPlaces=[];let nxt=places.filter(p=>!p.bye).length+1;
   if(D.pools){const maxN=Math.max(...D.pools.map(x=>x.length));
     for(let r=(D.qual||0)+1;r<=maxN;r++)stand.forEach((st,i)=>{if(D.pools[i].length>=r)poolPlaces.push({place:nxt++,pair:st.complete?st.rows[r-1].id:'',label:`${rankTxt(r)} poule ${LET(i)}`})})}
-  return{M,list,real,tabs,places,pms,stand,poolPlaces};
+  return{M,list,real,tabs,places,pms,stand,poolPlaces,slots};
+}
+function timeSelect(m,slots){
+  return`<select data-tslot="${m.id}" aria-label="Heure M${m.num}">${slots.map(t=>`<option value="${t}" ${t===m.time?'selected':''}>${toHM(t)}</option>`).join('')}<option value="__other">Autre heure…</option></select>`;
 }
 const mainRound=n=>n===2?'Finale':n===4?'Demi-finales':n===8?'Quarts de finale':`1/${n/2}e de finale`;
 const placesLabel=(lo,hi)=>hi<=lo?`${nth(lo)} place`:hi===lo+1?`${nth(lo)} et ${nth(hi)} places`:`Places ${lo} à ${hi}`;
@@ -724,7 +729,7 @@ function matchBox(Mo,m,showBye){
   return`<div class="match ${m.winner?'done':''}">
     <div class="meta"><span>M${m.num}</span><span class="when">
       <select data-court="${m.id}" aria-label="Terrain M${m.num}">${Array.from({length:C},(_,i)=>`<option value="${i+1}" ${m.court===i+1?'selected':''}>T${i+1}</option>`).join('')}</select>
-      ${toHM(m.time)}</span></div>
+      ${timeSelect(m,Mo.slots)}</span></div>
     ${['a','b'].map(s=>{const id=m[s];return`<button class="side ${m.winner&&m.winner===id?'win':''}" ${can?`data-win="${m.id}"`:'aria-disabled="true" tabindex="-1"'} ${id?`data-pid="${id}" title="${esc(label(byId(id)))}"`:''}><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></button>`}).join('')}
     <input class="score" inputmode="numeric" ${can?`data-score="${m.id}" value="${esc(sc)}" placeholder="Score, ex. ${F.ex}"`:'disabled placeholder="Score"'} aria-label="Score M${m.num}">
   </div>`;
@@ -792,7 +797,7 @@ function vPlanning(){
       <label class="f">Repos (min)<input type="number" min="0" step="5" data-set="rest" value="${s.rest}"></label>
       <label class="f">Arrivée avant le match (min)<input type="number" min="0" step="5" data-set="early" value="${s.early}"></label>
     </div>
-    <p class="help" style="margin-top:12px">Cliquez sur une paire pour la déclarer gagnante : les matchs suivants se mettent à jour. Chaque match est placé dès qu'un terrain est libre et que les deux paires ont eu leur temps de repos. Vous pouvez modifier l'heure ou le terrain de chaque match ci-dessous (ex. 14h15).</p>
+    <p class="help" style="margin-top:12px">Cliquez sur une paire pour la déclarer gagnante : les matchs suivants se mettent à jour. Chaque match est placé dès qu'un terrain est libre et que les deux paires ont eu leur temps de repos. Vous pouvez modifier l'heure (créneaux de la durée d'un match, ou « Autre heure… » pour saisir par ex. 14h15) et le terrain de chaque match : les changements sont les mêmes dans l'onglet Tableaux.</p>
   </section>
   <section class="card">
     <h2>Planning</h2>
@@ -800,7 +805,7 @@ function vPlanning(){
       <thead><tr><th>Match</th><th>Tableau</th><th>Heure</th><th>Terrain</th><th>Paires</th></tr></thead>
       <tbody>${real.map(m=>`<tr class="${m.winner?'done':''}">
         <td><strong>M${m.num}</strong></td><td class="muted">${rname(m)}</td>
-        <td><span class="hmspin"><input type="text" class="hm" data-time="${m.id}" value="${toHM(m.time)}" aria-label="Heure M${m.num}"><span class="spin"><button data-tstep="${m.id}|5" data-cur="${m.time}" aria-label="Plus 5 minutes">▲</button><button data-tstep="${m.id}|-5" data-cur="${m.time}" aria-label="Moins 5 minutes">▼</button></span></span></td>
+        <td>${timeSelect(m,Mo.slots)}</td>
         <td><input type="number" min="1" max="${s.courts}" data-court="${m.id}" value="${m.court}" aria-label="Terrain M${m.num}"></td>
         <td>${['a','b'].map(x=>`<button class="pbtn ${m.winner&&m.winner===m[x]?'win':''}" ${m.a&&m.b?`data-win="${m.id}" data-pid="${m[x]}"`:'disabled'}>${sideLabel(Mo.M,m,x)}</button>`).join(' <span class="muted">contre</span> ')}</td></tr>`).join('')}</tbody>
     </table></div>
@@ -915,6 +920,18 @@ function bind(){
     else save();
   });
   q('[data-time]',el=>el.onchange=()=>{const t=parseHM(el.value);if(t==null){UI.err='Heure invalide. Exemple : 14h15';render();return}S.draw.times[el.dataset.time]=t;save();render()});
+  q('[data-tslot]',el=>el.onchange=()=>{
+    const id=el.dataset.tslot;
+    if(el.value==='__other'){
+      const cur=model().M[id];
+      const x=prompt('Heure du match (ex. 14h15)',cur&&cur.time!=null?toHM(cur.time):'');
+      if(x===null){render();return}
+      const t=parseHM(x);
+      if(t==null){UI.err='Heure invalide. Exemple : 14h15';render();return}
+      S.draw.times[id]=t;
+    }else S.draw.times[id]=Number(el.value);
+    save();render();
+  });
   q('[data-court]',el=>el.onchange=()=>{S.draw.courts[el.dataset.court]=Number(el.value)||1;save();render()});
   q('[data-sent]',el=>el.addEventListener('click',()=>{S.sent[el.dataset.sent]=1;save();setTimeout(render,300)}));
   const d=document.getElementById('draw');if(d)d.onclick=()=>{if(S.draw&&!UI.redraw){UI.redraw=1;render();return}UI.redraw=0;if(makeDraw()){S.tab='tableau';UI.ok='Nouveau tirage effectué.';window.scrollTo(0,0)}save();render()};
