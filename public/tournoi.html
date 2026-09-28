@@ -42,7 +42,7 @@ nav{display:flex;gap:4px;overflow-x:auto}
 nav button{background:transparent;border:0;color:#fff;opacity:.75;padding:10px 16px 12px;cursor:pointer;font-family:"Barlow Condensed",sans-serif;font-size:19px;font-weight:600;border-bottom:4px solid transparent;white-space:nowrap}
 nav button[aria-current="true"]{opacity:1;border-bottom-color:var(--ball)}
 nav button:disabled{opacity:.35;cursor:default}
-main{max-width:1200px;margin:0 auto;padding:28px 20px 60px}
+main{max-width:1900px;margin:0 auto;padding:28px 20px 60px}
 section.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:22px;margin-bottom:20px}
 section.card h2{font-size:26px;margin-bottom:12px}
 p.help{color:var(--muted);margin:0 0 14px;max-width:70ch}
@@ -75,7 +75,7 @@ tr.out td{opacity:.45;text-decoration:line-through}
 
 /* Tableau */
 .bracket{display:flex;gap:26px;overflow-x:auto;padding:6px 16px 14px 2px}
-.round{display:flex;flex-direction:column;min-width:250px;flex:0 0 250px}
+.round{display:flex;flex-direction:column;min-width:200px;flex:1 1 230px}
 .round h3{font-size:20px;margin-bottom:10px;color:var(--court)}
 .round .ms{display:flex;flex-direction:column;flex:1}
 .pair{flex:1;display:flex;flex-direction:column;justify-content:space-around;position:relative}
@@ -128,7 +128,8 @@ tr.done td{background:var(--done)}
 .sync[data-s="err"]::before,.sync[data-s="ro"]::before{content:"● ";color:#F2B36F}
 .side{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;background:none;border:0;border-bottom:1px solid var(--line);padding:7px 10px;text-align:left;cursor:pointer;font-size:14px;min-height:36px}
 .side:last-of-type{border-bottom:0}
-.side:disabled{cursor:default}
+.side:disabled,.side[aria-disabled=true]{cursor:default}
+.ts[data-tsid]{cursor:pointer}
 .side.win{font-weight:700;color:var(--ink)}
 .side .tbd{color:var(--muted);font-style:italic}
 .match input.score{width:100%;border:0;border-top:1px solid var(--line);border-radius:0;padding:6px 10px;font-size:13px;background:var(--soft)}
@@ -153,7 +154,7 @@ table.stand tr.qual td{background:var(--done);font-weight:600}
 .subtab{min-width:0;max-width:100%;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
 .subtab .bracket{padding:12px 16px}
 .subtitle{font-size:19px;color:#fff;background:var(--court);margin:0;padding:8px 14px;text-align:center}
-.subtab .round{min-width:250px;flex-basis:250px}
+.subtab .round{min-width:200px;flex:1 1 230px}
 @media print{.card{page-break-inside:avoid}}
 .places{columns:2 240px;column-gap:30px;margin:0;padding:0;list-style:none}
 .places li{display:flex;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);break-inside:avoid}
@@ -416,6 +417,21 @@ function makePoolDraw(){
   S.draw={mode:'poules',size,slots,seeds:heads,pools,qual:c.Q,pm,winners:{},scores:{},times:{},courts:{}};
   S.sent={};save();return true;
 }
+function editSeed(id){
+  const D=S.draw;if(!D)return;
+  const k=D.seeds.indexOf(id);if(k<0)return;
+  const v=prompt(`Nouveau numéro de tête de série pour ${label(byId(id))} (actuel : TS${k+1}). Si ce numéro est déjà pris, les deux paires échangent leur TS.`,String(k+1));
+  if(v===null)return;
+  const n=parseInt(v,10);
+  if(!n||n<1||n>99){UI.err='Numéro de tête de série invalide.';render();return}
+  if(n-1===k)return;
+  const other=D.seeds[n-1];
+  while(D.seeds.length<n)D.seeds.push(null);
+  D.seeds[n-1]=id;D.seeds[k]=other||null;
+  while(D.seeds.length&&D.seeds[D.seeds.length-1]==null)D.seeds.pop();
+  UI.ok='Tête de série modifiée.';
+  save();render();
+}
 function findPairLocation(id){
   const D=S.draw;
   if(D.slots){const i=D.slots.indexOf(id);if(i>=0)return{type:'slot',i}}
@@ -595,7 +611,11 @@ function render(){
   const flash=(UI.err?`<div class="msg err">${esc(UI.err)}</div>`:'')+(UI.ok?`<div class="msg">${esc(UI.ok)}</div>`:'');UI.err=UI.ok='';
   document.getElementById('app').innerHTML=flash+({import:vImport,paires:vPaires,tableau:vTableau,planning:vPlanning,convoc:vConvoc})[S.tab]();
   bind();
+  postHeight();
 }
+function postHeight(){try{if(window.parent!==window)window.parent.postMessage({type:'tournoi-height',h:Math.ceil(document.body.getBoundingClientRect().height)},window.location.origin)}catch(e){}}
+window.addEventListener('resize',postHeight);
+if(window.ResizeObserver)new ResizeObserver(postHeight).observe(document.body);
 
 function vImport(){
   const s=S.settings;
@@ -626,7 +646,7 @@ function poolControls(n){
 function vPaires(){
   const ps=pairsOfEvent(),act=active();let size=2;while(size<act.length)size*=2;
   const nS=Math.min(act.length,S.settings.seeds==='auto'?autoSeeds(size):Number(S.settings.seeds));
-  const seedIds=S.settings.mode==='poules'?act.slice(0,poolCfg(act.length).X).map(p=>p.id):act.slice(0,nS).map(p=>p.id);
+  const seedIds=(S.draw&&S.draw.seeds)?S.draw.seeds:S.settings.mode==='poules'?act.slice(0,poolCfg(act.length).X).map(p=>p.id):act.slice(0,nS).map(p=>p.id);
   return`
   <section class="card">
     <h2>Paires classées par poids</h2>
@@ -683,10 +703,10 @@ function vPaires(){
 }
 
 function matchBox(Mo,m,showBye){
-  const seedNo=id=>{const k=S.draw.seeds.indexOf(id);return k>=0?`<span class="ts">TS${k+1}</span>`:''};
+  const seedNo=id=>{const k=S.draw.seeds.indexOf(id);return k>=0?`<span class="ts" data-tsid="${id}" title="Double-clic pour modifier">TS${k+1}</span>`:''};
   if(m.bye){
     const id=m.byeA?m.b:m.a,s=m.byeA?'b':'a';
-    return`<div class="match bye ${showBye?'':'ghostm'}"><div class="meta"><span>Exempt</span><span></span></div><div class="side win" style="cursor:default"><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></div><div class="side"><span class="nm tbd">Exempt</span></div><div class="score sp"></div></div>`;
+    return`<div class="match bye ${showBye?'':'ghostm'}"><div class="meta"><span>Exempt</span><span></span></div><div class="side win" ${id?`data-pid="${id}"`:''} style="cursor:default"><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></div><div class="side"><span class="nm tbd">Exempt</span></div><div class="score sp"></div></div>`;
   }
   const can=m.a&&m.b,F=fmt(),C=Number(S.settings.courts)||1;
   const sc=scoreStr(S.draw.scores[m.id]);
@@ -694,7 +714,7 @@ function matchBox(Mo,m,showBye){
     <div class="meta"><span>M${m.num}</span><span class="when">
       <select data-court="${m.id}" aria-label="Terrain M${m.num}">${Array.from({length:C},(_,i)=>`<option value="${i+1}" ${m.court===i+1?'selected':''}>T${i+1}</option>`).join('')}</select>
       ${toHM(m.time)}</span></div>
-    ${['a','b'].map(s=>{const id=m[s];return`<button class="side ${m.winner&&m.winner===id?'win':''}" ${can?`data-win="${m.id}" data-pid="${id}"`:'disabled'} ${id?`title="${esc(label(byId(id)))}"`:''}><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></button>`}).join('')}
+    ${['a','b'].map(s=>{const id=m[s];return`<button class="side ${m.winner&&m.winner===id?'win':''}" ${can?`data-win="${m.id}"`:'aria-disabled="true" tabindex="-1"'} ${id?`data-pid="${id}" title="${esc(label(byId(id)))}"`:''}><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></button>`}).join('')}
     <input class="score" inputmode="numeric" ${can?`data-score="${m.id}" value="${esc(sc)}" placeholder="Score, ex. ${F.ex}"`:'disabled placeholder="Score"'} aria-label="Score M${m.num}">
   </div>`;
 }
@@ -739,15 +759,6 @@ function vTableau(){
     <p class="help" style="margin:0">Tapez le score en bas du match (ex. « 9 6 » devient 9/6) : le vainqueur est désigné automatiquement. Vous pouvez aussi cliquer sur une paire.</p>
     <button class="btn" id="pdfBtn">Extraire en PDF</button>
   </div>
-  <section class="card noprint">
-    <h2>Échanger deux paires</h2>
-    <p class="help">Pour adapter le tableau aux besoins de chacun (horaires, contraintes). Échanger remet à zéro les scores, heures et terrains déjà saisis.</p>
-    <div class="row">
-      <label class="f">Paire 1<select id="swapA">${active().map(p=>`<option value="${p.id}">${esc(label(p))}</option>`).join('')}</select></label>
-      <label class="f">Paire 2<select id="swapB">${active().map((p,i)=>`<option value="${p.id}" ${i===1?'selected':''}>${esc(label(p))}</option>`).join('')}</select></label>
-      <button class="btn ghost" id="swapBtn" style="align-self:flex-end">Échanger</button>
-    </div>
-  </section>
   ${Mo.stand.length?`<h2 class="sect" style="font-size:30px;margin:6px 0 14px">Poules</h2><section class="card"><div class="pools">${Mo.stand.map((st,i)=>poolBlock(Mo,st,i)).join('')}</div></section>`:''}
   ${tabBlock(Mo,main)}
   ${shown.length?`<h2 class="sect" style="font-size:30px;margin:28px 0 14px">Matchs de classement</h2>${groups.map(([g,ms])=>groupBlock(Mo,g,ms)).join('')}`:''}
@@ -898,7 +909,10 @@ function bind(){
   const d=document.getElementById('draw');if(d)d.onclick=()=>{if(S.draw&&!UI.redraw){UI.redraw=1;render();return}UI.redraw=0;if(makeDraw()){S.tab='tableau';UI.ok='Nouveau tirage effectué.';window.scrollTo(0,0)}save();render()};
   const dc=document.getElementById('drawCancel');if(dc)dc.onclick=()=>{UI.redraw=0;render()};
   const rt=document.getElementById('resetTimes');if(rt)rt.onclick=()=>{S.draw.times={};S.draw.courts={};save();render()};
-  const sb=document.getElementById('swapBtn');if(sb)sb.onclick=()=>{swapPairs(document.getElementById('swapA').value,document.getElementById('swapB').value);render()};
+  document.querySelectorAll('.ts[data-tsid]').forEach(el=>{
+    el.addEventListener('click',e=>e.stopPropagation());
+    el.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();editSeed(el.dataset.tsid)});
+  });
   document.querySelectorAll('.side[data-pid]').forEach(el=>{
     const pid=el.dataset.pid;
     if(!pid)return;
