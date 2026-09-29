@@ -86,16 +86,17 @@ tr.out td{opacity:.45;text-decoration:line-through}
 .pair.v2::after{top:25%;bottom:25%}.pair.vt::after{top:25%;bottom:50%}.pair.vb::after{top:50%;bottom:25%}
 .ghostm{visibility:hidden}
 .side .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.score.sp{border-top:1px solid var(--line)}
-.match input.score,.score.sp,.score-p{height:26px;box-sizing:border-box;display:block}
+.score.sp{border-left:1px solid var(--line);border-top:0}
+.match input.score,.score.sp,.score-p{width:58px;flex-shrink:0;box-sizing:border-box}
 .side{height:30px}
-.score-p{text-align:center;font-weight:700;padding:3px;border-top:1px solid var(--line);font-size:12px}
+.score-p{text-align:center;font-weight:700;padding:3px;border-left:1px solid var(--line);border-top:0;font-size:12px;display:flex;align-items:center;justify-content:center}
 #pdfwrap{position:fixed;left:-20000px;top:0;width:1500px;background:#fff;padding:10px;
   --bg:#fff;--surface:#fff;--ink:#16202C;--muted:#5A6778;--line:#C9D3DE;--soft:#F5F8FB;--court:#0B5345;--done:#E2F3E8;--done-line:#8CCBA4;--conn:#5A6778;color:#16202C}
 #pdfwrap .ph{display:flex;align-items:center;gap:16px;background:#0B5345;color:#fff;padding:14px 20px}
 #pdfwrap .ph img{height:60px}#pdfwrap .ph h1{font-size:32px}
 #pdfwrap .bracket{overflow:visible}
-.match{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.match{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.mmain{flex:1;min-width:0;display:flex;flex-direction:column}
 .match.bye{opacity:.55;border-style:dashed}
 .match .meta{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--ink);padding:5px 8px 5px 10px;background:var(--soft);border-bottom:1px solid var(--line)}
 .match .meta select,.match .meta input{font-weight:700;padding:3px 5px;font-size:14px}
@@ -133,7 +134,7 @@ tr.done td{background:var(--done)}
 .side[data-pid]{user-select:none}
 .side.win{font-weight:700;color:var(--ink)}
 .side .tbd{color:var(--muted);font-style:italic}
-.match input.score{width:100%;border:0;border-top:1px solid var(--line);border-radius:0;padding:6px 10px;font-size:13px;background:var(--soft)}
+.match input.score{width:58px;border:0;border-left:1px solid var(--line);border-top:0;border-radius:0;padding:4px;font-size:12px;background:var(--soft)}
 .champ{margin-top:10px;padding:14px;border-radius:8px;background:var(--ball);color:var(--ball-ink);font-family:"Barlow Condensed",sans-serif;font-size:22px;font-weight:700}
 
 .pair-conv{display:grid;grid-template-columns:1fr auto;gap:10px 16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
@@ -724,16 +725,18 @@ function matchBox(Mo,m,showBye){
   const seedNo=id=>{const k=S.draw.seeds.indexOf(id);return k>=0?`<span class="ts" data-tsid="${id}" title="Double-clic pour modifier">TS${k+1}</span>`:''};
   if(m.bye){
     const id=m.byeA?m.b:m.a,s=m.byeA?'b':'a';
-    return`<div class="match bye ${showBye?'':'ghostm'}"><div class="meta"><span>Exempt</span><span></span></div><div class="side win" ${id?`data-pid="${id}"`:''} style="cursor:default"><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></div><div class="side"><span class="nm tbd">Exempt</span></div><div class="score sp"></div></div>`;
+    return`<div class="match bye ${showBye?'':'ghostm'}"><div class="mmain"><div class="meta"><span>Exempt</span><span></span></div><div class="side win" ${id?`data-pid="${id}"`:''} style="cursor:default"><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></div><div class="side"><span class="nm tbd">Exempt</span></div></div><div class="score sp"></div></div>`;
   }
   const can=m.a&&m.b,F=fmt(),C=Number(S.settings.courts)||1;
   const sc=scoreStr(S.draw.scores[m.id]);
   return`<div class="match ${m.winner?'done':''}">
+    <div class="mmain">
     <div class="meta"><span>M${m.num}</span><span class="when">
       <select data-court="${m.id}" aria-label="Terrain M${m.num}">${Array.from({length:C},(_,i)=>`<option value="${i+1}" ${m.court===i+1?'selected':''}>T${i+1}</option>`).join('')}</select>
       ${timeSelect(m,Mo.slots)}</span></div>
     ${['a','b'].map(s=>{const id=m[s];return`<button class="side ${m.winner&&m.winner===id?'win':''}" ${can?`data-win="${m.id}"`:'aria-disabled="true" tabindex="-1"'} ${id?`data-pid="${id}" title="${esc(label(byId(id)))}"`:''}><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></button>`}).join('')}
-    <input class="score" inputmode="numeric" ${can?`data-score="${m.id}" value="${esc(sc)}" placeholder="Score, ex. ${F.ex}"`:'disabled placeholder="Score"'} aria-label="Score M${m.num}">
+    </div>
+    <input class="score" inputmode="numeric" ${can?`data-score="${m.id}" value="${esc(sc)}" placeholder="${F.ex}"`:'disabled placeholder="—"'} aria-label="Score M${m.num}">
   </div>`;
 }
 function tabBlock(Mo,t,sub){
