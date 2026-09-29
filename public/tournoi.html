@@ -1002,8 +1002,8 @@ async function exportPDF(btn){
   wrap.append(...app.childNodes);document.body.appendChild(wrap);
   try{
     if(document.fonts)await document.fonts.ready;
-    const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const W=210,H=297,Mg=10;
+    const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const W=297,H=210,Mg=10;
     const grp=(...els)=>{const d=document.createElement('div');els[0].before(d);d.append(...els);return d};
     function fitScale(naturalH,gap,pageH){
       const total=naturalH.reduce((a,h)=>a+h,0)+gap*Math.max(0,naturalH.length-1);
@@ -1023,7 +1023,7 @@ async function exportPDF(btn){
     async function drawBlocks(blocksEls){
       const fullW=W-2*Mg,pageH=H-2*Mg,gap=4;
       const canvases=[];
-      for(const b of blocksEls)canvases.push(await html2canvas(b,{scale:2,backgroundColor:'#ffffff',logging:false}));
+      for(const b of blocksEls)canvases.push(await html2canvas(b,{scale:3,backgroundColor:'#ffffff',logging:false}));
       const naturalH=canvases.map(c=>c.height*fullW/c.width);
       const scale=fitScale(naturalH,gap,pageH);
       let y=Mg;
@@ -1032,7 +1032,7 @@ async function exportPDF(btn){
         let w=fullW*scale,h=naturalH[i]*scale;
         if(h>pageH){h=pageH;w=c.width*h/c.height}
         const x=Mg+(fullW-w)/2;
-        pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',x,y,w,h);y+=h+gap*scale;
+        pdf.addImage(c.toDataURL('image/jpeg',0.95),'JPEG',x,y,w,h);y+=h+gap*scale;
       }
     }
     wrap.querySelector('#classementFinal')?.remove();
