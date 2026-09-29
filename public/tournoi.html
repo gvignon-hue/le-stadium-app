@@ -937,6 +937,7 @@ function bind(){
   const d=document.getElementById('draw');if(d)d.onclick=()=>{if(S.draw&&!UI.redraw){UI.redraw=1;render();return}UI.redraw=0;if(makeDraw()){S.tab='tableau';UI.ok='Nouveau tirage effectué.';window.scrollTo(0,0)}save();render()};
   const dc=document.getElementById('drawCancel');if(dc)dc.onclick=()=>{UI.redraw=0;render()};
   const rt=document.getElementById('resetTimes');if(rt)rt.onclick=()=>{S.draw.times={};S.draw.courts={};save();render()};
+  const pb=document.getElementById('pdfBtn');if(pb)pb.onclick=()=>exportPDF(pb);
   document.querySelectorAll('.ts[data-tsid]').forEach(el=>{
     el.addEventListener('click',e=>e.stopPropagation());
     el.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();clearTimeout(winTimer);editSeed(el.dataset.tsid)});
