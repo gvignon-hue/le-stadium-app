@@ -770,6 +770,26 @@ function poolBlock(Mo,st,i){
     <div class="pool-ms">${st.ms.map(m=>matchBox(Mo,m,true)).join('')}</div>
   </div></div>`;
 }
+function classementLayout(Mo,cls,groups){
+  const find=lo=>cls.find(t=>t.lo===lo);
+  const t9=find(9),t13=find(13),t15=find(15),t11=find(11),t5=find(5),t3=find(3),t7=find(7);
+  if(!(t9&&t13&&t15&&t11&&t5&&t3&&t7))return null;
+  const custom=`<section class="card"><div class="branch">
+    <div class="group">
+      ${tabBlock(Mo,t9,true)}
+      ${tabBlock(Mo,t13,true)}
+      <div class="branch">${tabBlock(Mo,t15,true)}${tabBlock(Mo,t11,true)}</div>
+    </div>
+    <div class="group">
+      ${tabBlock(Mo,t5,true)}
+      ${tabBlock(Mo,t3,true)}
+      ${tabBlock(Mo,t7,true)}
+    </div>
+  </div></section>`;
+  const skipRoots=new Set([t9,t5,t3]);
+  const rest=groups.filter(([g])=>!skipRoots.has(g)).map(([g,ms])=>groupBlock(Mo,g,ms)).join('');
+  return custom+rest;
+}
 function vTableau(){
   const Mo=model();
   const [main,...cls]=Mo.tabs;
@@ -782,9 +802,9 @@ function vTableau(){
     <button class="btn" id="pdfBtn">Extraire en PDF</button>
   </div>
   ${Mo.stand.length?`<h2 class="sect" style="font-size:30px;margin:6px 0 14px">Poules</h2><section class="card"><div class="pools">${Mo.stand.map((st,i)=>poolBlock(Mo,st,i)).join('')}</div></section>`:''}
-  ${tabBlock(Mo,main)}
-  ${shown.length?`<h2 class="sect" style="font-size:30px;margin:28px 0 14px">Matchs de classement</h2>${groups.map(([g,ms])=>groupBlock(Mo,g,ms)).join('')}`:''}
-  <section class="card" style="margin-top:20px"><h2>Classement final</h2>
+  <div id="tableauPrincipal">${tabBlock(Mo,main)}</div>
+  ${shown.length?`<div id="tableauClassement"><h2 class="sect" style="font-size:30px;margin:28px 0 14px">Matchs de classement</h2>${classementLayout(Mo,cls,groups)||groups.map(([g,ms])=>groupBlock(Mo,g,ms)).join('')}</div>`:''}
+  <section class="card" id="classementFinal" style="margin-top:20px"><h2>Classement final</h2>
     <ol class="places">${places.map(p=>`<li><span class="pl">${nth(p.place)}</span><span>${p.pair?esc(label(byId(p.pair))):'<span class="muted">à jouer</span>'}</span></li>`).join('')}${Mo.poolPlaces.map(p=>`<li><span class="pl">${nth(p.place)}</span><span>${p.pair?esc(label(byId(p.pair))):`<span class="muted">${p.label}</span>`}</span></li>`).join('')}</ol>
   </section>`;
 }
@@ -982,36 +1002,49 @@ async function exportPDF(btn){
   wrap.append(...app.childNodes);document.body.appendChild(wrap);
   try{
     if(document.fonts)await document.fonts.ready;
-    const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-    const W=297,H=210,Mg=10;let y=Mg;
+    const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=210,H=297,Mg=10;
     const grp=(...els)=>{const d=document.createElement('div');els[0].before(d);d.append(...els);return d};
-    const cards=[...wrap.querySelectorAll('section.card')];
-    const blocks=[grp(wrap.querySelector('.ph'),cards[0])];
-    const sect=wrap.querySelector('h2.sect');
-    cards.slice(1).forEach(c=>blocks.push(sect&&c.previousElementSibling===sect?grp(sect,c):c));
-    const fullW=W-2*Mg,pageH=H-2*Mg,maxPages=2,gap=4;
-    const canvases=[];
-    for(const b of blocks)canvases.push(await html2canvas(b,{scale:2,backgroundColor:'#ffffff',logging:false}));
-    const naturalH=canvases.map(c=>c.height*fullW/c.width);
-    const totalNatural=naturalH.reduce((a,h)=>a+h,0)+gap*(canvases.length-1);
-    function pagesNeeded(sc){
-      let yy=Mg,pages=1;
-      for(let i=0;i<naturalH.length;i++){
-        let h=Math.min(naturalH[i]*sc,pageH);
-        if(yy+h>H-Mg&&yy>Mg){pages++;yy=Mg}
-        yy+=h+gap*sc;
+    function fitScale(naturalH,gap,pageH){
+      const total=naturalH.reduce((a,h)=>a+h,0)+gap*Math.max(0,naturalH.length-1);
+      function pagesNeeded(sc){
+        let yy=0,pages=1;
+        for(let i=0;i<naturalH.length;i++){
+          let h=Math.min(naturalH[i]*sc,pageH);
+          if(yy+h>pageH&&yy>0){pages++;yy=0}
+          yy+=h+gap*sc;
+        }
+        return pages;
       }
-      return pages;
+      let scale=Math.min(1,pageH/total);
+      for(let i=0;i<40&&pagesNeeded(scale)>1;i++)scale*=0.94;
+      return scale;
     }
-    let scale=Math.min(1,(pageH*maxPages)/totalNatural);
-    for(let i=0;i<40&&pagesNeeded(scale)>maxPages;i++)scale*=0.94;
-    for(let i=0;i<canvases.length;i++){
-      const c=canvases[i];
-      let w=fullW*scale,h=naturalH[i]*scale;
-      if(h>pageH){h=pageH;w=c.width*h/c.height}
-      if(y+h>H-Mg&&y>Mg){pdf.addPage();y=Mg}
-      const x=Mg+(fullW-w)/2;
-      pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',x,y,w,h);y+=h+gap*scale;
+    async function drawBlocks(blocksEls){
+      const fullW=W-2*Mg,pageH=H-2*Mg,gap=4;
+      const canvases=[];
+      for(const b of blocksEls)canvases.push(await html2canvas(b,{scale:2,backgroundColor:'#ffffff',logging:false}));
+      const naturalH=canvases.map(c=>c.height*fullW/c.width);
+      const scale=fitScale(naturalH,gap,pageH);
+      let y=Mg;
+      for(let i=0;i<canvases.length;i++){
+        const c=canvases[i];
+        let w=fullW*scale,h=naturalH[i]*scale;
+        if(h>pageH){h=pageH;w=c.width*h/c.height}
+        const x=Mg+(fullW-w)/2;
+        pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',x,y,w,h);y+=h+gap*scale;
+      }
+    }
+    wrap.querySelector('#classementFinal')?.remove();
+    const mainDiv=wrap.querySelector('#tableauPrincipal');
+    const clsDiv=wrap.querySelector('#tableauClassement');
+    await drawBlocks([grp(wrap.querySelector('.ph'),mainDiv)]);
+    if(clsDiv){
+      pdf.addPage();
+      const sect=clsDiv.querySelector('h2.sect');
+      const clsCards=[...clsDiv.querySelectorAll(':scope > section.card')];
+      const page2=sect&&clsCards.length?[grp(sect,clsCards[0]),...clsCards.slice(1)]:clsCards;
+      await drawBlocks(page2);
     }
     const name=`${(s.name||'tournoi').replace(/[^\w-]+/g,'-')}-tableaux.pdf`;
     let dl=null;try{dl=await window.claude?.use?.('downloads')}catch(e){}
