@@ -555,6 +555,7 @@ export default function App() {
   const [markers, setMarkers] = useState([]);
   const [stockProducts, setStockProducts] = useState([]);
   const [stockChecked, setStockChecked] = useState([]);
+  const [stockQty, setStockQty] = useState({});
   const [eventEntries, setEventEntries] = useState([]);
   const [eventGroups, setEventGroups] = useState([]);
   const [commDisabledTypes, setCommDisabledTypes] = useState([]);
@@ -631,6 +632,7 @@ export default function App() {
       setStockProducts(sp);
     })();
     storageGet("stock-checked", []).then(setStockChecked);
+    storageGet("stock-qty", {}).then(setStockQty);
     (async () => {
       let ee = await storageGet("event-entries:v2", null);
       if (ee === null) {
@@ -689,6 +691,11 @@ export default function App() {
   const saveStockChecked = useCallback(async (next) => {
     setStockChecked(next);
     await storageSet("stock-checked", next);
+  }, []);
+
+  const saveStockQty = useCallback(async (next) => {
+    setStockQty(next);
+    await storageSet("stock-qty", next);
   }, []);
 
   const saveEventEntries = useCallback(async (next) => {
@@ -813,14 +820,14 @@ export default function App() {
         )}
 
         {profile && (
-          <AppBody profile={profile} isManager={isManager} activeTab={activeTab} setActiveTab={setActiveTab} oswald={oswald} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} commActions={commActions} saveCommActions={saveCommActions} projects={projects} saveProjects={saveProjects} employees={employees} saveEmployees={saveEmployees} markers={markers} saveMarkers={saveMarkers} stockProducts={stockProducts} saveStockProducts={saveStockProducts} stockChecked={stockChecked} saveStockChecked={saveStockChecked} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} saveEventGroups={saveEventGroups} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} notes={notes} saveNotes={saveNotes} />
+          <AppBody profile={profile} isManager={isManager} activeTab={activeTab} setActiveTab={setActiveTab} oswald={oswald} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} commActions={commActions} saveCommActions={saveCommActions} projects={projects} saveProjects={saveProjects} employees={employees} saveEmployees={saveEmployees} markers={markers} saveMarkers={saveMarkers} stockProducts={stockProducts} saveStockProducts={saveStockProducts} stockChecked={stockChecked} saveStockChecked={saveStockChecked} stockQty={stockQty} saveStockQty={saveStockQty} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} saveEventGroups={saveEventGroups} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} notes={notes} saveNotes={saveNotes} />
         )}
       </main>
     </div>
   );
 }
 
-function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, managerActions, saveManagerActions, commActions, saveCommActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, eventEntries, saveEventEntries, eventGroups, saveEventGroups, commDisabledTypes, saveCommDisabledTypes, notes, saveNotes }) {
+function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, managerActions, saveManagerActions, commActions, saveCommActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, stockQty, saveStockQty, eventEntries, saveEventEntries, eventGroups, saveEventGroups, commDisabledTypes, saveCommDisabledTypes, notes, saveNotes }) {
   const todayISO = isoDate(new Date());
   const pendingOwnActions = actions.filter((a) => !a.done && hasAssignee(a, profile.name)).length;
   const pendingManagerActions = isManager ? managerActions.filter((a) => !a.done && hasAssignee(a, profile.name)).length : 0;
@@ -889,7 +896,7 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
       {activeTab === "ouverture" && <ChecklistTab type="ouverture" title="Process ouverture" seed={OUVERTURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
       {activeTab === "fermeture" && <ChecklistTab type="fermeture" title="Process fermeture" seed={FERMETURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
       {activeTab === "todo" && <TodoTab profile={profile} isManager={isManager} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} projects={projects} saveProjects={saveProjects} employees={employees} oswald={oswald} />}
-      {activeTab === "stock" && <StockTab products={stockProducts} saveProducts={saveStockProducts} checked={stockChecked} saveChecked={saveStockChecked} oswald={oswald} />}
+      {activeTab === "stock" && <StockTab products={stockProducts} saveProducts={saveStockProducts} checked={stockChecked} saveChecked={saveStockChecked} qty={stockQty} saveQty={saveStockQty} oswald={oswald} />}
       {activeTab === "cp" && isManager && <CPTab markers={markers} employees={employees} oswald={oswald} />}
       {activeTab === "historique" && isManager && <HistoriqueTab oswald={oswald} />}
       {activeTab === "reglages" && isManager && <SettingsTab employees={employees} saveEmployees={saveEmployees} eventGroups={eventGroups} saveEventGroups={saveEventGroups} saveActions={saveActions} saveEventEntries={saveEventEntries} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} oswald={oswald} />}
@@ -2976,7 +2983,7 @@ function ProjectModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
 
 /* ---------------- STOCK ---------------- */
 
-function StockTab({ products, saveProducts, checked, saveChecked, oswald }) {
+function StockTab({ products, saveProducts, checked, saveChecked, qty, saveQty, oswald }) {
   const [manageOpen, setManageOpen] = useState(false);
   const [modal, setModal] = useState(null);
 
@@ -2986,6 +2993,13 @@ function StockTab({ products, saveProducts, checked, saveChecked, oswald }) {
   }
   async function uncheckAll() {
     await saveChecked([]);
+    await saveQty({});
+  }
+  async function updateQty(id, value) {
+    const next = { ...qty };
+    if (value.trim()) next[id] = value.trim();
+    else delete next[id];
+    await saveQty(next);
   }
 
   async function saveProduct(data) {
@@ -3059,6 +3073,7 @@ function StockTab({ products, saveProducts, checked, saveChecked, oswald }) {
                     {isChecked && <Check size={14} className="text-white" />}
                   </button>
                   <div className={"flex-1 text-sm " + (isChecked ? "text-rose-600 font-semibold" : "text-slate-700")}>{p.name}</div>
+                  {isChecked && <QtyInput value={qty[p.id] || ""} onSave={(v) => updateQty(p.id, v)} />}
                   {manageOpen && (
                     <button onClick={() => setModal({ mode: "edit", id: p.id, group: p.group, name: p.name })} className="text-slate-400 shrink-0">
                       <Pencil size={14} />
@@ -3075,6 +3090,20 @@ function StockTab({ products, saveProducts, checked, saveChecked, oswald }) {
 
       {modal && <StockProductModal modal={modal} groups={groups.map((g) => g.name)} onClose={() => setModal(null)} onSave={saveProduct} onDelete={deleteProduct} oswald={oswald} />}
     </div>
+  );
+}
+
+function QtyInput({ value, onSave }) {
+  const [v, setV] = useState(value);
+  useEffect(() => setV(value), [value]);
+  return (
+    <input
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => { if (v !== value) onSave(v); }}
+      placeholder="Volume"
+      className="w-20 shrink-0 text-xs border border-rose-200 rounded px-2 py-1 text-rose-700 bg-rose-50"
+    />
   );
 }
 
@@ -3906,7 +3935,7 @@ function TournoiTab() {
   return (
     <div style={{ width: "min(97vw, 2000px)", position: "relative", left: "50%", transform: "translateX(-50%)" }}>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <iframe src="/tournoi.html" title="Tournoi padel" scrolling="no" style={{ width: "100%", height: h + "px", border: "none", display: "block" }} />
+        <iframe src="/tournoi.html" title="Tournoi padel" scrolling="no" allow="downloads" style={{ width: "100%", height: h + "px", border: "none", display: "block" }} />
       </div>
     </div>
   );
