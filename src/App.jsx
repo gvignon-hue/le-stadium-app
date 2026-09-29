@@ -2995,11 +2995,16 @@ function StockTab({ products, saveProducts, checked, saveChecked, qty, saveQty, 
     await saveChecked([]);
     await saveQty({});
   }
-  async function updateQty(id, value) {
-    const next = { ...qty };
-    if (value.trim()) next[id] = value.trim();
-    else delete next[id];
-    await saveQty(next);
+  async function changeQty(id, delta) {
+    const cur = qty[id] || 0;
+    const next = Math.max(0, cur + delta);
+    const nextQty = { ...qty };
+    if (next > 0) nextQty[id] = next;
+    else delete nextQty[id];
+    await saveQty(nextQty);
+    const isChecked = checked.includes(id);
+    if (next > 0 && !isChecked) await saveChecked([...checked, id]);
+    else if (next === 0 && isChecked) await saveChecked(checked.filter((x) => x !== id));
   }
 
   async function saveProduct(data) {
@@ -3073,7 +3078,22 @@ function StockTab({ products, saveProducts, checked, saveChecked, qty, saveQty, 
                     {isChecked && <Check size={14} className="text-white" />}
                   </button>
                   <div className={"flex-1 text-sm " + (isChecked ? "text-rose-600 font-semibold" : "text-slate-700")}>{p.name}</div>
-                  {isChecked && <QtyInput value={qty[p.id] || ""} onSave={(v) => updateQty(p.id, v)} />}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => changeQty(p.id, -1)}
+                      disabled={!qty[p.id]}
+                      className="w-6 h-6 rounded border border-slate-200 text-slate-500 disabled:opacity-30 flex items-center justify-center font-bold"
+                    >
+                      −
+                    </button>
+                    <span className="w-5 text-center text-xs font-bold text-slate-600">{qty[p.id] || 0}</span>
+                    <button
+                      onClick={() => changeQty(p.id, 1)}
+                      className="w-6 h-6 rounded border border-slate-200 text-slate-500 flex items-center justify-center font-bold"
+                    >
+                      +
+                    </button>
+                  </div>
                   {manageOpen && (
                     <button onClick={() => setModal({ mode: "edit", id: p.id, group: p.group, name: p.name })} className="text-slate-400 shrink-0">
                       <Pencil size={14} />
@@ -3090,20 +3110,6 @@ function StockTab({ products, saveProducts, checked, saveChecked, qty, saveQty, 
 
       {modal && <StockProductModal modal={modal} groups={groups.map((g) => g.name)} onClose={() => setModal(null)} onSave={saveProduct} onDelete={deleteProduct} oswald={oswald} />}
     </div>
-  );
-}
-
-function QtyInput({ value, onSave }) {
-  const [v, setV] = useState(value);
-  useEffect(() => setV(value), [value]);
-  return (
-    <input
-      value={v}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => { if (v !== value) onSave(v); }}
-      placeholder="Volume"
-      className="w-20 shrink-0 text-xs border border-rose-200 rounded px-2 py-1 text-rose-700 bg-rose-50"
-    />
   );
 }
 
