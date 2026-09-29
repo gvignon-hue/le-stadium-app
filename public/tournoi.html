@@ -152,6 +152,8 @@ td input[type=time]{width:110px} td input[type=number]{width:70px}
 table.stand td,table.stand th{padding:6px 8px}
 table.stand tr.qual td{background:var(--done);font-weight:600}
 .group{display:flex;flex-wrap:wrap;gap:18px 40px;align-items:flex-start}
+.branch{display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+.branch .group{margin-left:28px;padding-left:16px;border-left:2px solid var(--line)}
 .subtab{min-width:0;max-width:100%;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
 .subtab .bracket{padding:12px 16px}
 .subtitle{font-size:19px;color:#fff;background:var(--court);margin:0;padding:8px 14px;text-align:center}
@@ -497,7 +499,7 @@ function model(){
   const isBye=src=>{if(src===null)return true;if(src.p||src.q)return false;const m=M[src.m];return src.t==='w'?(m.byeA&&m.byeB):m.bye};
   function build(lo,ents,tab,depth,parent){
     if(ents.length===1){places.push({place:lo,src:ents[0]});return}
-    if(!tab){tab={lo,hi:lo+ents.length-1,rounds:[],main:!tabs.length,depth0:depth};tab.group=!parent||parent.main?tab:parent.group;tab.early=!tab.main&&parent?(parent.main?depth===1:!!parent.early):false;tabs.push(tab)}
+    if(!tab){tab={lo,hi:lo+ents.length-1,rounds:[],main:!tabs.length,depth0:depth};tab.group=!parent||parent.main?tab:parent.group;tab.parent=parent&&!parent.main?parent:null;tab.early=!tab.main&&parent?(parent.main?depth===1:!!parent.early):false;tabs.push(tab)}
     const round={n:ents.length,lo,matches:[]};tab.rounds.push(round);
     const W=[],L=[];
     for(let i=0;i<ents.length;i+=2){
@@ -751,8 +753,12 @@ function tabBlock(Mo,t,sub){
   </div>`;
   return sub?`<div class="subtab"><h3 class="subtitle">${tabTitle(t)}</h3>${inner}</div>`:`<section class="card"><h2>${tabTitle(t)}</h2>${inner}</section>`;
 }
+function branchBlock(Mo,t,members){
+  const children=members.filter(m=>m.parent===t);
+  return`<div class="branch">${tabBlock(Mo,t,true)}${children.length?`<div class="group">${children.map(c=>branchBlock(Mo,c,members)).join('')}</div>`:''}</div>`;
+}
 function groupBlock(Mo,g,members){
-  return`<section class="card"><div class="group">${members.map(t=>tabBlock(Mo,t,true)).join('')}</div></section>`;
+  return`<section class="card"><div class="group">${branchBlock(Mo,g,members)}</div></section>`;
 }
 function poolBlock(Mo,st,i){
   const Q=S.draw.qual,sign=v=>v>0?'+'+v:v;
@@ -983,12 +989,29 @@ async function exportPDF(btn){
     const blocks=[grp(wrap.querySelector('.ph'),cards[0])];
     const sect=wrap.querySelector('h2.sect');
     cards.slice(1).forEach(c=>blocks.push(sect&&c.previousElementSibling===sect?grp(sect,c):c));
-    for(const b of blocks){
-      const c=await html2canvas(b,{scale:2,backgroundColor:'#ffffff',logging:false});
-      let w=W-2*Mg,h=c.height*w/c.width;
-      if(h>H-2*Mg){h=H-2*Mg;w=c.width*h/c.height}
+    const fullW=W-2*Mg,pageH=H-2*Mg,maxPages=2,gap=4;
+    const canvases=[];
+    for(const b of blocks)canvases.push(await html2canvas(b,{scale:2,backgroundColor:'#ffffff',logging:false}));
+    const naturalH=canvases.map(c=>c.height*fullW/c.width);
+    const totalNatural=naturalH.reduce((a,h)=>a+h,0)+gap*(canvases.length-1);
+    function pagesNeeded(sc){
+      let yy=Mg,pages=1;
+      for(let i=0;i<naturalH.length;i++){
+        let h=Math.min(naturalH[i]*sc,pageH);
+        if(yy+h>H-Mg&&yy>Mg){pages++;yy=Mg}
+        yy+=h+gap*sc;
+      }
+      return pages;
+    }
+    let scale=Math.min(1,(pageH*maxPages)/totalNatural);
+    for(let i=0;i<40&&pagesNeeded(scale)>maxPages;i++)scale*=0.94;
+    for(let i=0;i<canvases.length;i++){
+      const c=canvases[i];
+      let w=fullW*scale,h=naturalH[i]*scale;
+      if(h>pageH){h=pageH;w=c.width*h/c.height}
       if(y+h>H-Mg&&y>Mg){pdf.addPage();y=Mg}
-      pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',Mg,y,w,h);y+=h+4;
+      const x=Mg+(fullW-w)/2;
+      pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',x,y,w,h);y+=h+gap*scale;
     }
     const name=`${(s.name||'tournoi').replace(/[^\w-]+/g,'-')}-tableaux.pdf`;
     let dl=null;try{dl=await window.claude?.use?.('downloads')}catch(e){}
