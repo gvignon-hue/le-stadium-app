@@ -155,7 +155,7 @@ table.stand tr.qual td{background:var(--done);font-weight:600}
 .subtab{min-width:0;max-width:100%;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
 .subtab .bracket{padding:12px 16px}
 .subtitle{font-size:19px;color:#fff;background:var(--court);margin:0;padding:8px 14px;text-align:center}
-.subtab .round{min-width:200px;flex:1 1 230px}
+.subtab .round{min-width:240px;flex:1 1 280px}
 @media print{.card{page-break-inside:avoid}}
 .places{columns:2 240px;column-gap:30px;margin:0;padding:0;list-style:none}
 .places li{display:flex;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);break-inside:avoid}
@@ -288,7 +288,7 @@ async function pushRemote(){
   }catch(e){setSync('err')}
 }
 function setSync(v){SYNC=v;const el=document.getElementById('sync');if(!el)return;
-  el.textContent={local:'Enregistré sur cet appareil',ok:'Enregistré en ligne, partagé avec le staff',err:'Connexion perdue : enregistré sur cet appareil',ro:'Lecture seule : vous ne pouvez pas modifier ce tournoi'}[v]||'';el.dataset.s=v}
+  el.textContent={local:'',ok:'',err:'Connexion perdue : enregistré sur cet appareil',ro:'Lecture seule : vous ne pouvez pas modifier ce tournoi'}[v]||'';el.dataset.s=v}
 function applyRemote(d){
   let st;try{st=JSON.parse(d.state)}catch(e){return}
   const tab=S.tab;S=Object.assign(fresh(),st);S.settings=Object.assign(fresh().settings,st.settings||{});S.tab=tab;
