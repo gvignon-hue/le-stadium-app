@@ -727,7 +727,7 @@ function matchBox(Mo,m,showBye){
     const id=m.byeA?m.b:m.a,s=m.byeA?'b':'a';
     return`<div class="match bye ${showBye?'':'ghostm'}"><div class="mmain"><div class="meta"><span>Exempt</span><span></span></div><div class="side win" ${id?`data-pid="${id}"`:''} style="cursor:default"><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></div><div class="side"><span class="nm tbd">Exempt</span></div></div><div class="score sp"></div></div>`;
   }
-  const can=m.a&&m.b,F=fmt(),C=Number(S.settings.courts)||1;
+  const can=m.a&&m.b,C=Number(S.settings.courts)||1;
   const sc=scoreStr(S.draw.scores[m.id]);
   return`<div class="match ${m.winner?'done':''}">
     <div class="mmain">
@@ -736,7 +736,7 @@ function matchBox(Mo,m,showBye){
       ${timeSelect(m,Mo.slots)}</span></div>
     ${['a','b'].map(s=>{const id=m[s];return`<button class="side ${m.winner&&m.winner===id?'win':''}" ${can?`data-win="${m.id}"`:'aria-disabled="true" tabindex="-1"'} ${id?`data-pid="${id}" title="${esc(label(byId(id)))}"`:''}><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></button>`}).join('')}
     </div>
-    <input class="score" inputmode="numeric" ${can?`data-score="${m.id}" value="${esc(sc)}" placeholder="${F.ex}"`:'disabled placeholder="—"'} aria-label="Score M${m.num}">
+    <input class="score" inputmode="numeric" ${can?`data-score="${m.id}" value="${esc(sc)}" placeholder="score"`:'disabled placeholder="—"'} aria-label="Score M${m.num}">
   </div>`;
 }
 function tabBlock(Mo,t,sub){
