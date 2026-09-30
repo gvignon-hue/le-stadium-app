@@ -141,6 +141,9 @@ tr.done td{background:var(--done)}
 .side .tbd{color:var(--muted);font-style:italic}
 .match input.score,.score-side{width:34px;border:0;border-left:1px solid var(--line);border-top:0;border-radius:0;padding:4px 2px;font-size:12px;background:var(--soft);text-align:center}
 .champ{margin-top:10px;padding:14px;border-radius:8px;background:var(--ball);color:var(--ball-ink);font-family:"Barlow Condensed",sans-serif;font-size:22px;font-weight:700}
+.archives{display:flex;flex-direction:column;gap:10px}
+.arc{border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.arc-h{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
 
 .pair-conv{display:grid;grid-template-columns:1fr auto;gap:10px 16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
 .pair-conv:last-child{border-bottom:0}
@@ -309,6 +312,32 @@ async function archiveTournament(){
   saveLocal();
   render();
   pushRemote();
+}
+function placesFromState(st){
+  const backup=S;
+  try{
+    S=Object.assign(fresh(),st);
+    if(!S.draw)return[];
+    const Mo=model();
+    const a=Mo.places.filter(p=>p.pair!==null).map(p=>({place:p.place,label:esc(label(byId(p.pair)))}));
+    const b=(Mo.poolPlaces||[]).map(p=>({place:p.place,label:p.pair?esc(label(byId(p.pair))):p.label}));
+    return[...a,...b].sort((x,y)=>x.place-y.place);
+  }catch(e){return[]}
+  finally{S=backup}
+}
+async function loadArchives(){
+  UI.archivesLoading=1;render();
+  try{
+    const res=await fetch(SUPABASE_URL+'/rest/v1/app_storage?key=like.tournoi-archive-*&select=key,value&order=key.desc',{
+      headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}
+    });
+    const rows=res.ok?await res.json():[];
+    UI.archives=rows.map(r=>{
+      let st=null;try{st=JSON.parse(r.value.state)}catch(e){}
+      return{key:r.key,name:r.value.name,date:r.value.date,archivedAt:r.value.archivedAt,nb:st&&st.all?st.all.length:0,places:st?placesFromState(st):[]};
+    });
+  }catch(e){UI.archives=[]}
+  UI.archivesLoading=0;UI.archivesLoaded=1;render();
 }
 function setSync(v){SYNC=v;const el=document.getElementById('sync');if(!el)return;
   el.textContent={local:'',ok:'',err:'Connexion perdue : enregistré sur cet appareil',ro:'Lecture seule : vous ne pouvez pas modifier ce tournoi'}[v]||'';el.dataset.s=v}
@@ -678,6 +707,18 @@ function vImport(){
     ${S.file?`<div class="msg">Fichier chargé : <strong>${esc(S.file)}</strong>, ${S.all.length} paires. Importer un nouveau fichier remplace le tournoi en cours.</div>`:''}
   </section>
   ${S.all.length?`<section class="card noprint"><h2>Archiver et recommencer</h2><p class="help">Enregistre ce tournoi (résultats compris) puis repart d'un écran vierge, prêt pour un nouveau tournoi.</p><button class="btn" id="archive">${UI.archive?'Oui, archiver et recommencer':'Archiver ce tournoi'}</button></section>` : ''}
+  <section class="card noprint">
+    <h2>Tournois archivés</h2>
+    ${!UI.archivesLoaded?`<button class="btn ghost" id="loadArchives">${UI.archivesLoading?'Chargement…':'Voir les tournois archivés'}</button>`:
+      (UI.archives||[]).length===0?`<p class="help">Aucun tournoi archivé pour l'instant.</p>`:
+      `<div class="archives">${UI.archives.map(a=>`
+        <div class="arc">
+          <div class="arc-h"><strong>${esc(a.name||'Tournoi')}</strong> <span class="muted">${a.date?dateFR(a.date):''}${a.nb?` · ${a.nb} paires`:''} · archivé le ${new Date(a.archivedAt).toLocaleDateString('fr-FR')}</span>
+            <button class="btn ghost" data-arcview="${a.key}" style="margin-left:8px">${UI.archiveOpen===a.key?'Masquer':'Voir le classement'}</button>
+          </div>
+          ${UI.archiveOpen===a.key?`<ol class="places">${(a.places||[]).map(p=>`<li><span class="pl">${nth(p.place)}</span><span>${p.label?esc(p.label):'<span class="muted">—</span>'}</span></li>`).join('')||'<li class="muted">Pas de classement disponible.</li>'}</ol>`:''}
+        </div>`).join('')}</div>`}
+  </section>
   ${S.all.length?`<section class="card noprint"><h2>Recommencer</h2><p class="help">Efface le tournoi enregistré dans ce navigateur.</p><button class="btn danger" id="reset">${UI.reset?'Oui, effacer le tournoi':'Effacer le tournoi'}</button></section>`:''}`;
 }
 
@@ -1030,6 +1071,8 @@ function bind(){
   });
   const rs=document.getElementById('reset');if(rs)rs.onclick=()=>{if(!UI.reset){UI.reset=1;render();return}UI.reset=0;const keep=S.settings;S=fresh();S.settings=keep;save();render()};
   const ar=document.getElementById('archive');if(ar)ar.onclick=()=>{if(!UI.archive){UI.archive=1;render();return}UI.archive=0;archiveTournament()};
+  const la=document.getElementById('loadArchives');if(la)la.onclick=()=>loadArchives();
+  q('[data-arcview]',el=>el.onclick=()=>{UI.archiveOpen=UI.archiveOpen===el.dataset.arcview?null:el.dataset.arcview;render()});
   const f=document.getElementById('file');if(f)f.onchange=()=>f.files[0]&&importFile(f.files[0]);
   const dr=document.getElementById('drop');
   if(dr){dr.ondragover=e=>{e.preventDefault();dr.classList.add('over')};dr.ondragleave=()=>dr.classList.remove('over');
