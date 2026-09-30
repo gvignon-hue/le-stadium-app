@@ -3928,6 +3928,12 @@ function NotesTab({ profile, notes, saveNotes, oswald }) {
 
 function TournoiTab() {
   const [h, setH] = useState(900);
+  const [available, setAvailable] = useState(true);
+  useEffect(() => {
+    fetch("/tournoi.html", { method: "HEAD" })
+      .then((r) => setAvailable(r.ok))
+      .catch(() => setAvailable(false));
+  }, []);
   useEffect(() => {
     function onMsg(e) {
       if (e.origin !== window.location.origin) return;
@@ -3938,6 +3944,13 @@ function TournoiTab() {
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
   }, []);
+  if (!available) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-500 text-sm">
+        L'onglet Tournoi n'est disponible que sur l'application déployée (ton lien Vercel) — pas dans cet aperçu.
+      </div>
+    );
+  }
   return (
     <div style={{ width: "min(97vw, 2000px)", position: "relative", left: "50%", transform: "translateX(-50%)" }}>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
