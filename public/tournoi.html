@@ -97,6 +97,7 @@ tr.out td{opacity:.45;text-decoration:line-through}
 #pdfwrap .bracket{overflow:visible}
 .match{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .match.next{background:#FFF3E0;border-color:#F5A623}
+.match.started{background:#FFFDE0;border-color:#E8D050}
 .mmain{display:flex;flex-direction:column}
 .mnum{display:flex;align-items:center;gap:4px;cursor:pointer}
 .mnum input{cursor:pointer}
@@ -641,9 +642,9 @@ function model(){
   const poolPlaces=[];let nxt=places.filter(p=>!p.bye).length+1;
   if(D.pools){const maxN=Math.max(...D.pools.map(x=>x.length));
     for(let r=(D.qual||0)+1;r<=maxN;r++)stand.forEach((st,i)=>{if(D.pools[i].length>=r)poolPlaces.push({place:nxt++,pair:st.complete?st.rows[r-1].id:'',label:`${rankTxt(r)} poule ${LET(i)}`})})}
-  const readyMatches=real.filter(x=>x.a&&x.b&&!x.winner&&!S.draw.started[x.id]);
-  const nextTime=readyMatches.length?Math.min(...readyMatches.map(x=>x.time)):null;
-  return{M,list,real,tabs,places,pms,stand,poolPlaces,slots,nextTime};
+  const readyMatches=real.filter(x=>x.a&&x.b&&!x.winner&&!S.draw.started[x.id]).sort((a,b)=>a.time-b.time||a.court-b.court);
+  const nextIds=new Set(readyMatches.slice(0,4).map(x=>x.id));
+  return{M,list,real,tabs,places,pms,stand,poolPlaces,slots,nextIds};
 }
 function timeSelect(m,slots){
   return`<select data-tslot="${m.id}" aria-label="Heure M${m.num}">${slots.map(t=>`<option value="${t}" ${t===m.time?'selected':''}>${toHM(t)}</option>`).join('')}<option value="__other">Autre heure…</option></select>`;
@@ -805,10 +806,11 @@ function matchBox(Mo,m,showBye){
   }
   const can=m.a&&m.b,C=Number(S.settings.courts)||1,F=fmt();
   const scores=S.draw.scores[m.id];
-  const next=!m.winner&&can&&m.time===Mo.nextTime;
-  return`<div class="match ${m.winner?'done':''} ${next?'next':''}">
+  const started=!!S.draw.started[m.id];
+  const stateClass=m.winner?'done':started?'started':(can&&Mo.nextIds.has(m.id))?'next':'';
+  return`<div class="match ${stateClass}">
     <div class="mmain">
-    <div class="meta"><span class="mnum"><input type="checkbox" class="noprint" data-started="${m.id}" ${S.draw.started[m.id]?'checked':''} aria-label="M${m.num} commencé">M${m.num}</span><span class="when">
+    <div class="meta"><span class="mnum"><input type="checkbox" class="noprint" data-started="${m.id}" ${started?'checked':''} aria-label="M${m.num} commencé">M${m.num}</span><span class="when">
       <select data-court="${m.id}" aria-label="Terrain M${m.num}">${Array.from({length:C},(_,i)=>`<option value="${i+1}" ${m.court===i+1?'selected':''}>T${i+1}</option>`).join('')}</select>
       ${timeSelect(m,Mo.slots)}</span></div>
     ${['a','b'].map((s,si)=>{const id=m[s];return`<div class="siderow"><button class="side ${m.winner&&m.winner===id?'win':''}" ${can?`data-win="${m.id}"`:'aria-disabled="true" tabindex="-1"'} ${id?`data-pid="${id}" title="${esc(label(byId(id)))}"`:''}><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></button>${F.sets.map((_,ki)=>`<input class="score-side" inputmode="numeric" ${can?`data-sc="${m.id}|${ki}|${si}" value="${esc(scVal(scores,ki,si))}"`:'disabled'} aria-label="M${m.num} set ${ki+1} ${s==='a'?'A':'B'}">`).join('')}</div>`}).join('')}
@@ -1003,7 +1005,7 @@ function bind(){
     pair.poids=(Number(pair.p[0].cl)||99999)+(Number(pair.p[1].cl)||99999);
     UI.editPair=null;save();render();
   });
-  q('[data-win]',el=>el.onclick=()=>{clearTimeout(winTimer);winTimer=setTimeout(()=>{const id=el.dataset.win,p=el.dataset.pid;S.draw.winners[id]=S.draw.winners[id]===p?'':p;save();render()},260)});
+  q('[data-win]',el=>el.onclick=()=>{clearTimeout(winTimer);winTimer=setTimeout(()=>{const id=el.dataset.win,p=el.dataset.pid;const set=S.draw.winners[id]!==p;S.draw.winners[id]=set?p:'';if(set)S.draw.started[id]=1;save();render()},260)});
   q('[data-score]',el=>el.onchange=()=>{
     const id=el.dataset.score,D=S.draw,{sets,txt}=parseScore(el.value);
     D.scores[id]=txt;const m=model().M[id],w=autoWin(sets);
@@ -1019,7 +1021,7 @@ function bind(){
     if(!Array.isArray(D.scores[id]))D.scores[id]=[];const sc=D.scores[id];
     sc[i]=sc[i]||['',''];sc[i][si]=el.value.trim();
     const m=model().M[id],w=autoWin(sc);
-    if(w&&D.winners[id]!==m[w]){D.winners[id]=m[w];save();const key=el.dataset.sc;render();
+    if(w&&D.winners[id]!==m[w]){D.winners[id]=m[w];D.started[id]=1;save();const key=el.dataset.sc;render();
       const L=[...document.querySelectorAll('[data-sc]')],k=L.findIndex(e=>e.dataset.sc===key);if(k>=0&&L[k+1])L[k+1].focus()}
     else save();
   });
