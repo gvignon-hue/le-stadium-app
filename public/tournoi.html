@@ -87,7 +87,7 @@ tr.out td{opacity:.45;text-decoration:line-through}
 .ghostm{visibility:hidden}
 .side .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .score.sp{border-left:1px solid var(--line);border-top:0}
-.match input.score,.score.sp,.score-p{width:58px;flex-shrink:0;box-sizing:border-box}
+.match input.score,.score-side,.score.sp,.score-p{width:34px;flex-shrink:0;box-sizing:border-box}
 .side{height:30px}
 .score-p{text-align:center;font-weight:700;padding:3px;border-left:1px solid var(--line);border-top:0;font-size:12px;display:flex;align-items:center;justify-content:center}
 #pdfwrap{position:fixed;left:-20000px;top:0;width:1500px;background:#fff;padding:10px;
@@ -95,8 +95,13 @@ tr.out td{opacity:.45;text-decoration:line-through}
 #pdfwrap .ph{display:flex;align-items:center;gap:16px;background:#0B5345;color:#fff;padding:14px 20px}
 #pdfwrap .ph img{height:60px}#pdfwrap .ph h1{font-size:32px}
 #pdfwrap .bracket{overflow:visible}
-.match{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.mmain{flex:1;min-width:0;display:flex;flex-direction:column}
+.match{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.match.next{background:#FFF3E0;border-color:#F5A623}
+.mmain{display:flex;flex-direction:column}
+.mnum{display:flex;align-items:center;gap:4px;cursor:pointer}
+.mnum input{cursor:pointer}
+.siderow{display:flex;align-items:stretch}
+.siderow .side{flex:1;min-width:0}
 .match.bye{opacity:.55;border-style:dashed}
 .match .meta{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--ink);padding:5px 8px 5px 10px;background:var(--soft);border-bottom:1px solid var(--line)}
 .match .meta select,.match .meta input{font-weight:700;padding:3px 5px;font-size:14px}
@@ -111,7 +116,7 @@ tr.out td{opacity:.45;text-decoration:line-through}
 .spin button:hover{background:var(--line)}
 .match .when{display:flex;align-items:center;gap:6px}
 .match input.score{font-weight:600;text-align:center;letter-spacing:.5px}
-.match.done input.score{background:transparent}
+.match.done input.score,.match.done .score-side{background:transparent}
 .side.win::after{content:"✓";font-weight:700;color:var(--court)}
 .pbtn{background:none;border:1px solid var(--line);border-radius:6px;padding:4px 8px;cursor:pointer;margin:2px 0}
 .pbtn.win{background:var(--done);border-color:var(--done-line);font-weight:700}
@@ -134,7 +139,7 @@ tr.done td{background:var(--done)}
 .side[data-pid]{user-select:none}
 .side.win{font-weight:700;color:var(--ink)}
 .side .tbd{color:var(--muted);font-style:italic}
-.match input.score{width:58px;border:0;border-left:1px solid var(--line);border-top:0;border-radius:0;padding:4px;font-size:12px;background:var(--soft)}
+.match input.score,.score-side{width:34px;border:0;border-left:1px solid var(--line);border-top:0;border-radius:0;padding:4px 2px;font-size:12px;background:var(--soft);text-align:center}
 .champ{margin-top:10px;padding:14px;border-radius:8px;background:var(--ball);color:var(--ball-ink);font-family:"Barlow Condensed",sans-serif;font-size:22px;font-weight:700}
 
 .pair-conv{display:grid;grid-template-columns:1fr auto;gap:10px 16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
@@ -259,6 +264,7 @@ if(!S.settings.tplSmsGroup)S.settings.tplSmsGroup=TPL_SMS_GROUP;
 if(!S.settings.tplRelance)S.settings.tplRelance=TPL_RELANCE;
 if(!S.confirmed)S.confirmed={};
 if(!S.paid)S.paid={};
+if(S.draw&&!S.draw.started)S.draw.started={};
 if(S.settings.tplWa===TPL_WA_V1)S.settings.tplWa=TPL_WA;
 if(S.settings.tplSms===TPL_SMS_V1)S.settings.tplSms=TPL_SMS;
 let UI={};let winTimer=null;
@@ -290,11 +296,26 @@ async function pushRemote(){
     setSync('ok');
   }catch(e){setSync('err')}
 }
+async function archiveTournament(){
+  const archId='tournoi-archive-'+Date.now();
+  try{
+    await fetch(SUPABASE_URL+'/rest/v1/app_storage',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify({key:archId,value:{name:S.settings.name,date:S.settings.date,event:S.event,archivedAt:Date.now(),state:JSON.stringify(shared())},updated_at:new Date().toISOString()})
+    });
+  }catch(e){}
+  S=fresh();
+  saveLocal();
+  render();
+  pushRemote();
+}
 function setSync(v){SYNC=v;const el=document.getElementById('sync');if(!el)return;
   el.textContent={local:'',ok:'',err:'Connexion perdue : enregistré sur cet appareil',ro:'Lecture seule : vous ne pouvez pas modifier ce tournoi'}[v]||'';el.dataset.s=v}
 function applyRemote(d){
   let st;try{st=JSON.parse(d.state)}catch(e){return}
   const tab=S.tab;S=Object.assign(fresh(),st);S.settings=Object.assign(fresh().settings,st.settings||{});S.tab=tab;
+  if(!S.confirmed)S.confirmed={};if(!S.paid)S.paid={};if(S.draw&&!S.draw.started)S.draw.started={};
   if(!S.all.length&&S.tab!=='import')S.tab='import';if(!S.draw&&(S.tab==='tableau'||S.tab==='convoc'))S.tab='paires';
   saveLocal();
   const a=document.activeElement;
@@ -418,7 +439,7 @@ function makePoolDraw(){
   for(let i=0;i<size;i++)if(slots[i]===undefined)slots[i]=null;
   const pm=[];pools.forEach((pl,i)=>roundRobin(pl).forEach((ms,r)=>ms.forEach(([a,b],k)=>pm.push({id:`P${i}-${r}-${k}`,pool:i,round:r,a,b}))));
   const heads=[...direct.map(p=>p.id),...pools.map(pl=>pl[0])];
-  S.draw={mode:'poules',size,slots,seeds:heads,pools,qual:c.Q,pm,winners:{},scores:{},times:{},courts:{}};
+  S.draw={mode:'poules',size,slots,seeds:heads,pools,qual:c.Q,pm,winners:{},scores:{},times:{},courts:{},started:{}};
   S.sent={};save();return true;
 }
 function editSeed(id){
@@ -487,7 +508,7 @@ function makeDraw(){
   for(let k=nSeeds;k<rank.length&&byes>0;k++){const pos=rank[k];if(slots[pos]===undefined&&slots[pos^1]===undefined){slots[pos]=ps[u++].id;slots[pos^1]=null;byes--}}
   const rest=shuffle(ps.slice(u).map(p=>p.id));
   for(let i=0;i<size;i++)if(slots[i]===undefined)slots[i]=rest.shift();
-  S.draw={size,slots,seeds:ps.slice(0,nSeeds).map(p=>p.id),winners:{},scores:{},times:{},courts:{}};
+  S.draw={size,slots,seeds:ps.slice(0,nSeeds).map(p=>p.id),winners:{},scores:{},times:{},courts:{},started:{}};
   S.sent={};save();return true;
 }
 
@@ -591,7 +612,9 @@ function model(){
   const poolPlaces=[];let nxt=places.filter(p=>!p.bye).length+1;
   if(D.pools){const maxN=Math.max(...D.pools.map(x=>x.length));
     for(let r=(D.qual||0)+1;r<=maxN;r++)stand.forEach((st,i)=>{if(D.pools[i].length>=r)poolPlaces.push({place:nxt++,pair:st.complete?st.rows[r-1].id:'',label:`${rankTxt(r)} poule ${LET(i)}`})})}
-  return{M,list,real,tabs,places,pms,stand,poolPlaces,slots};
+  const readyMatches=real.filter(x=>x.a&&x.b&&!x.winner&&!S.draw.started[x.id]);
+  const nextTime=readyMatches.length?Math.min(...readyMatches.map(x=>x.time)):null;
+  return{M,list,real,tabs,places,pms,stand,poolPlaces,slots,nextTime};
 }
 function timeSelect(m,slots){
   return`<select data-tslot="${m.id}" aria-label="Heure M${m.num}">${slots.map(t=>`<option value="${t}" ${t===m.time?'selected':''}>${toHM(t)}</option>`).join('')}<option value="__other">Autre heure…</option></select>`;
@@ -654,6 +677,7 @@ function vImport(){
       <strong>Choisir le fichier Excel</strong><br><span class="muted">ou le glisser ici</span></label>
     ${S.file?`<div class="msg">Fichier chargé : <strong>${esc(S.file)}</strong>, ${S.all.length} paires. Importer un nouveau fichier remplace le tournoi en cours.</div>`:''}
   </section>
+  ${S.all.length?`<section class="card noprint"><h2>Archiver et recommencer</h2><p class="help">Enregistre ce tournoi (résultats compris) puis repart d'un écran vierge, prêt pour un nouveau tournoi.</p><button class="btn" id="archive">${UI.archive?'Oui, archiver et recommencer':'Archiver ce tournoi'}</button></section>` : ''}
   ${S.all.length?`<section class="card noprint"><h2>Recommencer</h2><p class="help">Efface le tournoi enregistré dans ce navigateur.</p><button class="btn danger" id="reset">${UI.reset?'Oui, effacer le tournoi':'Effacer le tournoi'}</button></section>`:''}`;
 }
 
@@ -721,22 +745,33 @@ function vPaires(){
   </section>`;
 }
 
+function scVal(scores,setIdx,sideIdx){
+  let rows;
+  if(Array.isArray(scores))rows=scores;
+  else if(typeof scores==='string'&&scores)rows=scores.trim().split(/\s+/).map(s=>s.split('/'));
+  else return'';
+  const row=rows[setIdx];
+  return row?(row[sideIdx]||''):'';
+}
 function matchBox(Mo,m,showBye){
   const seedNo=id=>{const k=S.draw.seeds.indexOf(id);return k>=0?`<span class="ts" data-tsid="${id}" title="Double-clic pour modifier">TS${k+1}</span>`:''};
   if(m.bye){
     const id=m.byeA?m.b:m.a,s=m.byeA?'b':'a';
-    return`<div class="match bye ${showBye?'':'ghostm'}"><div class="mmain"><div class="meta"><span>Exempt</span><span></span></div><div class="side win" ${id?`data-pid="${id}"`:''} style="cursor:default"><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></div><div class="side"><span class="nm tbd">Exempt</span></div></div><div class="score sp"></div></div>`;
+    return`<div class="match bye ${showBye?'':'ghostm'}"><div class="mmain"><div class="meta"><span class="mnum">Exempt</span><span></span></div>
+      <div class="siderow"><div class="side win" ${id?`data-pid="${id}"`:''} style="cursor:default"><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></div></div>
+      <div class="siderow"><div class="side"><span class="nm tbd">Exempt</span></div></div>
+    </div></div>`;
   }
-  const can=m.a&&m.b,C=Number(S.settings.courts)||1;
-  const sc=scoreStr(S.draw.scores[m.id]);
-  return`<div class="match ${m.winner?'done':''}">
+  const can=m.a&&m.b,C=Number(S.settings.courts)||1,F=fmt();
+  const scores=S.draw.scores[m.id];
+  const next=!m.winner&&can&&m.time===Mo.nextTime;
+  return`<div class="match ${m.winner?'done':''} ${next?'next':''}">
     <div class="mmain">
-    <div class="meta"><span>M${m.num}</span><span class="when">
+    <div class="meta"><span class="mnum"><input type="checkbox" class="noprint" data-started="${m.id}" ${S.draw.started[m.id]?'checked':''} aria-label="M${m.num} commencé">M${m.num}</span><span class="when">
       <select data-court="${m.id}" aria-label="Terrain M${m.num}">${Array.from({length:C},(_,i)=>`<option value="${i+1}" ${m.court===i+1?'selected':''}>T${i+1}</option>`).join('')}</select>
       ${timeSelect(m,Mo.slots)}</span></div>
-    ${['a','b'].map(s=>{const id=m[s];return`<button class="side ${m.winner&&m.winner===id?'win':''}" ${can?`data-win="${m.id}"`:'aria-disabled="true" tabindex="-1"'} ${id?`data-pid="${id}" title="${esc(label(byId(id)))}"`:''}><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></button>`}).join('')}
+    ${['a','b'].map((s,si)=>{const id=m[s];return`<div class="siderow"><button class="side ${m.winner&&m.winner===id?'win':''}" ${can?`data-win="${m.id}"`:'aria-disabled="true" tabindex="-1"'} ${id?`data-pid="${id}" title="${esc(label(byId(id)))}"`:''}><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></button>${F.sets.map((_,ki)=>`<input class="score-side" inputmode="numeric" ${can?`data-sc="${m.id}|${ki}|${si}" value="${esc(scVal(scores,ki,si))}"`:'disabled'} aria-label="M${m.num} set ${ki+1} ${s==='a'?'A':'B'}">`).join('')}</div>`}).join('')}
     </div>
-    <input class="score" inputmode="numeric" ${can?`data-score="${m.id}" value="${esc(sc)}" placeholder="score"`:'disabled placeholder="—"'} aria-label="Score M${m.num}">
   </div>`;
 }
 function tabBlock(Mo,t,sub){
@@ -781,7 +816,7 @@ function classementLayout(Mo,cls,groups){
     <div class="group">
       ${tabBlock(Mo,t9,true)}
       ${tabBlock(Mo,t13,true)}
-      <div class="branch">${tabBlock(Mo,t15,true)}${tabBlock(Mo,t11,true)}</div>
+      <div class="group">${tabBlock(Mo,t15,true)}${tabBlock(Mo,t11,true)}</div>
     </div>
     <div class="group">
       ${tabBlock(Mo,t5,true)}
@@ -800,8 +835,7 @@ function vTableau(){
   const groups=[...new Set(shown.map(t=>t.group))].sort((a,b)=>a.lo-b.lo).map(g=>[g,shown.filter(t=>t.group===g).sort((a,b)=>a.lo-b.lo)]);
   const places=Mo.places.filter(p=>p.pair!==null).sort((a,b)=>a.place-b.place);
   return`
-  <div class="row noprint" style="justify-content:space-between;margin-bottom:14px">
-    <p class="help" style="margin:0">Tapez le score en bas du match (ex. « 9 6 » devient 9/6) : le vainqueur est désigné automatiquement. Vous pouvez aussi cliquer sur une paire.</p>
+  <div class="row noprint" style="justify-content:flex-end;margin-bottom:14px">
     <button class="btn" id="pdfBtn">Extraire en PDF</button>
   </div>
   ${Mo.stand.length?`<h2 class="sect" style="font-size:30px;margin:6px 0 14px">Poules</h2><section class="card"><div class="pools">${Mo.stand.map((st,i)=>poolBlock(Mo,st,i)).join('')}</div></section>`:''}
@@ -961,7 +995,16 @@ function bind(){
     }else S.draw.times[id]=Number(el.value);
     save();render();
   });
-  q('[data-court]',el=>el.onchange=()=>{S.draw.courts[el.dataset.court]=Number(el.value)||1;save();render()});
+  q('[data-court]',el=>el.onchange=()=>{
+    const id=el.dataset.court,newCourt=Number(el.value)||1,Mo=model(),m=Mo.M[id];
+    if(!m){S.draw.courts[id]=newCourt;save();render();return}
+    const oldCourt=m.court;
+    const conflict=Mo.real.find(x=>x.id!==id&&!x.bye&&x.time===m.time&&x.court===newCourt);
+    S.draw.courts[id]=newCourt;
+    if(conflict)S.draw.courts[conflict.id]=oldCourt;
+    save();render();
+  });
+  q('[data-started]',el=>el.onchange=()=>{if(el.checked)S.draw.started[el.dataset.started]=1;else delete S.draw.started[el.dataset.started];save();render()});
   q('[data-sent]',el=>el.addEventListener('click',()=>{S.sent[el.dataset.sent]=1;save();setTimeout(render,300)}));
   const d=document.getElementById('draw');if(d)d.onclick=()=>{if(S.draw&&!UI.redraw){UI.redraw=1;render();return}UI.redraw=0;if(makeDraw()){S.tab='tableau';UI.ok='Nouveau tirage effectué.';window.scrollTo(0,0)}save();render()};
   const dc=document.getElementById('drawCancel');if(dc)dc.onclick=()=>{UI.redraw=0;render()};
@@ -986,6 +1029,7 @@ function bind(){
     });
   });
   const rs=document.getElementById('reset');if(rs)rs.onclick=()=>{if(!UI.reset){UI.reset=1;render();return}UI.reset=0;const keep=S.settings;S=fresh();S.settings=keep;save();render()};
+  const ar=document.getElementById('archive');if(ar)ar.onclick=()=>{if(!UI.archive){UI.archive=1;render();return}UI.archive=0;archiveTournament()};
   const f=document.getElementById('file');if(f)f.onchange=()=>f.files[0]&&importFile(f.files[0]);
   const dr=document.getElementById('drop');
   if(dr){dr.ondragover=e=>{e.preventDefault();dr.classList.add('over')};dr.ondragleave=()=>dr.classList.remove('over');
