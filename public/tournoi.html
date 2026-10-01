@@ -96,8 +96,8 @@ tr.out td{opacity:.45;text-decoration:line-through}
 #pdfwrap .ph img{height:60px}#pdfwrap .ph h1{font-size:32px}
 #pdfwrap .bracket{overflow:visible}
 .match{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.match.next{background:#FFF3E0;border-color:#F5A623}
-.match.started{background:#FFFDE0;border-color:#E8D050}
+.match.next{background:#FFDFAD;border:2px solid #E8860B}
+.match.started{background:#FBF191;border:2px solid #C9A227}
 .mmain{display:flex;flex-direction:column}
 .mnum{display:flex;align-items:center;gap:4px;cursor:pointer}
 .mnum input{cursor:pointer}
@@ -107,7 +107,13 @@ tr.out td{opacity:.45;text-decoration:line-through}
 .match .meta{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--ink);padding:5px 8px 5px 10px;background:var(--soft);border-bottom:1px solid var(--line)}
 .match .meta select,.match .meta input{font-weight:700;padding:3px 5px;font-size:14px}
 .match .meta input.hm{width:64px}
-.match.done{background:var(--done);border-color:var(--done-line)}
+.match.done{background:#B8E6C4;border:2px solid #2E9950}
+.legend{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.lg-item{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.lg-dot{width:14px;height:14px;border-radius:4px;display:inline-block}
+.lg-dot.done{background:#B8E6C4;border:2px solid #2E9950}
+.lg-dot.started{background:#FBF191;border:2px solid #C9A227}
+.lg-dot.next{background:#FFDFAD;border:2px solid #E8860B}
 .match.done .meta{background:transparent}
 .hmspin{display:inline-flex;align-items:stretch}
 .hmspin input.hm{border-radius:6px 0 0 6px;width:80px}
@@ -548,7 +554,7 @@ function makeDraw(){
    {p} = paire, {m,t:'w'|'l'} = vainqueur/perdant d'un match. */
 function model(){
   const D=S.draw,M={},list=[],tabs=[],places=[];let cnt=0;
-  const isBye=src=>{if(src===null)return true;if(src.p||src.q)return false;const m=M[src.m];return src.t==='w'?(m.byeA&&m.byeB):m.bye};
+  const isBye=src=>{if(src===null)return true;if(src.p||src.q||src.tri)return false;const m=M[src.m];return src.t==='w'?(m.byeA&&m.byeB):m.bye};
   function build(lo,ents,tab,depth,parent){
     if(ents.length===1){places.push({place:lo,src:ents[0]});return}
     const realEnts=ents.filter(e=>!isBye(e));
@@ -558,6 +564,7 @@ function model(){
       trio.parent=parent&&!parent.main?parent:null;
       trio.early=!trio.main&&parent?(parent.main?depth===1:!!parent.early):false;
       tabs.push(trio);
+      for(let i=0;i<realEnts.length;i++){places.push({place:lo+i,src:{tri:trio,idx:i}})}
       for(let i=0;i<realEnts.length;i++)for(let j=i+1;j<realEnts.length;j++){
         const m={id:'m'+(cnt++),sa:realEnts[i],sb:realEnts[j],lo,n:realEnts.length,tab:trio,depth,idx:list.length,triGroup:trio};
         m.byeA=false;m.byeB=false;m.bye=false;
@@ -601,7 +608,7 @@ function model(){
   });
 
   // Résolution des paires ('' = pas encore connu, null = exempt)
-  const res=src=>{if(src===null)return null;if(src.p)return src.p;if(src.q){const st=stand[src.q[0]];return st&&st.complete?(st.rows[src.q[1]-1]?.id||''):''}const m=M[src.m];return src.t==='w'?m.winner:m.loser};
+  const res=src=>{if(src===null)return null;if(src.p)return src.p;if(src.q){const st=stand[src.q[0]];return st&&st.complete?(st.rows[src.q[1]-1]?.id||''):''}if(src.tri){const t=src.tri;return t.complete&&t.rows[src.idx]?t.rows[src.idx].id:''}const m=M[src.m];return src.t==='w'?m.winner:m.loser};
   list.forEach(m=>{
     m.a=res(m.sa);m.b=res(m.sb);
     if(m.bye){m.winner=m.byeA&&m.byeB?null:(m.byeA?m.b:m.a);m.loser=null;return}
@@ -622,7 +629,6 @@ function model(){
     const rows=Object.values(st).sort((x,y)=>y.v-x.v||h2h(x.id,y.id)||pw(x.id)-pw(y.id));
     const complete=ms.every(m=>m.winner);
     trio.complete=complete;trio.rows=rows;
-    if(complete)rows.forEach((r,i)=>places.push({place:trio.lo+i,src:{p:r.id}}));
   });
 
   // Planning : chaque match démarre dès qu'un terrain est libre et que ses paires ont eu leur repos
@@ -919,7 +925,12 @@ function vTableau(){
   const groups=[...new Set(shown.map(t=>t.group))].sort((a,b)=>a.lo-b.lo).map(g=>[g,shown.filter(t=>t.group===g).sort((a,b)=>a.lo-b.lo)]);
   const places=Mo.places.filter(p=>p.pair!==null).sort((a,b)=>a.place-b.place);
   return`
-  <div class="row noprint" style="justify-content:flex-end;margin-bottom:14px">
+  <div class="row noprint" style="justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+    <div class="legend">
+      <span class="lg-item"><span class="lg-dot done"></span>Match terminé</span>
+      <span class="lg-item"><span class="lg-dot started"></span>Match en cours</span>
+      <span class="lg-item"><span class="lg-dot next"></span>Prochain match</span>
+    </div>
     <button class="btn" id="pdfBtn">Extraire en PDF</button>
   </div>
   ${Mo.stand.length?`<h2 class="sect" style="font-size:30px;margin:6px 0 14px">Poules</h2><section class="card"><div class="pools">${Mo.stand.map((st,i)=>poolBlock(Mo,st,i)).join('')}</div></section>`:''}
