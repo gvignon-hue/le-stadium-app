@@ -551,6 +551,20 @@ function model(){
   const isBye=src=>{if(src===null)return true;if(src.p||src.q)return false;const m=M[src.m];return src.t==='w'?(m.byeA&&m.byeB):m.bye};
   function build(lo,ents,tab,depth,parent){
     if(ents.length===1){places.push({place:lo,src:ents[0]});return}
+    const realEnts=ents.filter(e=>!isBye(e));
+    if(!tab&&parent&&realEnts.length>=3&&realEnts.length%2===1&&realEnts.length<ents.length){
+      const trio={lo,hi:lo+realEnts.length-1,triangular:true,entrants:realEnts,matches:[],rounds:[],main:false};
+      trio.group=!parent||parent.main?trio:parent.group;
+      trio.parent=parent&&!parent.main?parent:null;
+      trio.early=!trio.main&&parent?(parent.main?depth===1:!!parent.early):false;
+      tabs.push(trio);
+      for(let i=0;i<realEnts.length;i++)for(let j=i+1;j<realEnts.length;j++){
+        const m={id:'m'+(cnt++),sa:realEnts[i],sb:realEnts[j],lo,n:realEnts.length,tab:trio,depth,idx:list.length,triGroup:trio};
+        m.byeA=false;m.byeB=false;m.bye=false;
+        M[m.id]=m;list.push(m);trio.matches.push(m);
+      }
+      return;
+    }
     if(!tab){tab={lo,hi:lo+ents.length-1,rounds:[],main:!tabs.length,depth0:depth};tab.group=!parent||parent.main?tab:parent.group;tab.parent=parent&&!parent.main?parent:null;tab.early=!tab.main&&parent?(parent.main?depth===1:!!parent.early):false;tabs.push(tab)}
     const round={n:ents.length,lo,matches:[]};tab.rounds.push(round);
     const W=[],L=[];
@@ -594,6 +608,21 @@ function model(){
     let w=D.winners[m.id];
     if(!(m.a&&m.b&&(w===m.a||w===m.b))){if(w)delete D.winners[m.id];w=''}
     m.winner=w;m.loser=w?(w===m.a?m.b:m.a):'';
+  });
+
+  // Classement des petits groupes "poule à N" (quand le nombre réel de paires restantes est impair)
+  tabs.filter(t=>t.triangular).forEach(trio=>{
+    const resolved=trio.entrants.map(res);
+    if(resolved.some(id=>!id)){trio.complete=false;trio.rows=[];return}
+    const st={};resolved.forEach(id=>st[id]={id,v:0});
+    const ms=trio.matches;
+    ms.forEach(m=>{if(m.winner)st[m.winner].v++});
+    const pw=id=>byId(id)?.poids??1e9;
+    const h2h=(x,y)=>{const m=ms.find(mm=>(mm.a===x&&mm.b===y)||(mm.a===y&&mm.b===x));return m&&m.winner?(m.winner===x?-1:1):0};
+    const rows=Object.values(st).sort((x,y)=>y.v-x.v||h2h(x.id,y.id)||pw(x.id)-pw(y.id));
+    const complete=ms.every(m=>m.winner);
+    trio.complete=complete;trio.rows=rows;
+    if(complete)rows.forEach((r,i)=>places.push({place:trio.lo+i,src:{p:r.id}}));
   });
 
   // Planning : chaque match démarre dès qu'un terrain est libre et que ses paires ont eu leur repos
@@ -818,6 +847,7 @@ function matchBox(Mo,m,showBye){
   </div>`;
 }
 function tabBlock(Mo,t,sub){
+  if(t.triangular)return triBlock(Mo,t,sub);
   const rounds=t.rounds.filter(r=>t.main||r.matches.some(m=>!m.bye));
   const last=rounds.length-1;
   const inner=`<div class="bracket">
@@ -833,6 +863,16 @@ function tabBlock(Mo,t,sub){
       }).join('')}</div></div>`}).join('')}
   </div>`;
   return sub?`<div class="subtab"><h3 class="subtitle">${tabTitle(t)}</h3>${inner}</div>`:`<section class="card"><h2>${tabTitle(t)}</h2>${inner}</section>`;
+}
+function triBlock(Mo,trio,sub){
+  const rows=trio.rows||[];
+  const inner=`
+    <div class="scroll"><table class="stand"><thead><tr><th>#</th><th>Paire</th><th class="num">Victoires</th></tr></thead><tbody>
+    ${rows.length?rows.map((r,k)=>`<tr><td class="num"><strong>${nth(trio.lo+k)}</strong></td><td>${esc(label(byId(r.id)))}</td><td class="num">${r.v}</td></tr>`).join(''):`<tr><td colspan="3" class="muted">En attente des équipes…</td></tr>`}
+    </tbody></table></div>
+    <p class="muted" style="font-size:13px;margin:8px 0">${trio.complete?'Classement final de ce petit tableau.':'Poule à '+trio.entrants.length+' : chaque équipe affronte les deux autres, classement au nombre de victoires.'}</p>
+    <div class="ms">${trio.matches.map(m=>`<div class="mw">${matchBox(Mo,m,true)}</div>`).join('')}</div>`;
+  return sub?`<div class="subtab"><h3 class="subtitle">${placesLabel(trio.lo,trio.hi)}</h3>${inner}</div>`:`<section class="card"><h2>${placesLabel(trio.lo,trio.hi)}</h2>${inner}</section>`;
 }
 function branchBlock(Mo,t,members){
   const children=members.filter(m=>m.parent===t);
@@ -853,8 +893,9 @@ function poolBlock(Mo,st,i){
 }
 function classementLayout(Mo,cls,groups){
   const find=lo=>cls.find(t=>t.lo===lo);
+  const hasReal=t=>t&&(t.triangular?t.matches.length>0:t.rounds.some(r=>r.matches.some(m=>!m.bye)));
   const t9=find(9),t13=find(13),t15=find(15),t11=find(11),t5=find(5),t3=find(3),t7=find(7);
-  if(!(t9&&t13&&t15&&t11&&t5&&t3&&t7))return null;
+  if(![t9,t13,t15,t11,t5,t3,t7].every(hasReal))return null;
   const custom=`<section class="card"><div class="branch">
     <div class="group">
       ${tabBlock(Mo,t9,true)}
@@ -874,7 +915,7 @@ function classementLayout(Mo,cls,groups){
 function vTableau(){
   const Mo=model();
   const [main,...cls]=Mo.tabs;
-  const shown=cls.filter(t=>t.rounds.some(r=>r.matches.some(m=>!m.bye)));
+  const shown=cls.filter(t=>t.triangular?t.matches.length>0:t.rounds.some(r=>r.matches.some(m=>!m.bye)));
   const groups=[...new Set(shown.map(t=>t.group))].sort((a,b)=>a.lo-b.lo).map(g=>[g,shown.filter(t=>t.group===g).sort((a,b)=>a.lo-b.lo)]);
   const places=Mo.places.filter(p=>p.pair!==null).sort((a,b)=>a.place-b.place);
   return`
@@ -1028,14 +1069,20 @@ function bind(){
   q('[data-time]',el=>el.onchange=()=>{const t=parseHM(el.value);if(t==null){UI.err='Heure invalide. Exemple : 14h15';render();return}S.draw.times[el.dataset.time]=t;save();render()});
   q('[data-tslot]',el=>el.onchange=()=>{
     const id=el.dataset.tslot;
+    let newTime;
     if(el.value==='__other'){
       const cur=model().M[id];
       const x=prompt('Heure du match (ex. 14h15)',cur&&cur.time!=null?toHM(cur.time):'');
       if(x===null){render();return}
-      const t=parseHM(x);
-      if(t==null){UI.err='Heure invalide. Exemple : 14h15';render();return}
-      S.draw.times[id]=t;
-    }else S.draw.times[id]=Number(el.value);
+      newTime=parseHM(x);
+      if(newTime==null){UI.err='Heure invalide. Exemple : 14h15';render();return}
+    }else newTime=Number(el.value);
+    const Mo=model(),m=Mo.M[id];
+    if(!m){S.draw.times[id]=newTime;save();render();return}
+    const oldTime=m.time;
+    const conflict=Mo.real.find(x=>x.id!==id&&!x.bye&&x.court===m.court&&x.time===newTime);
+    S.draw.times[id]=newTime;
+    if(conflict)S.draw.times[conflict.id]=oldTime;
     save();render();
   });
   q('[data-court]',el=>el.onchange=()=>{
