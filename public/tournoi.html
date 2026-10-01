@@ -108,12 +108,11 @@ tr.out td{opacity:.45;text-decoration:line-through}
 .match .meta select,.match .meta input{font-weight:700;padding:3px 5px;font-size:14px}
 .match .meta input.hm{width:64px}
 .match.done{background:#B8E6C4;border:2px solid #2E9950}
-.legend{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
-.lg-item{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
-.lg-dot{width:14px;height:14px;border-radius:4px;display:inline-block}
-.lg-dot.done{background:#B8E6C4;border:2px solid #2E9950}
-.lg-dot.started{background:#FBF191;border:2px solid #C9A227}
-.lg-dot.next{background:#FFDFAD;border:2px solid #E8860B}
+.legend{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.lg-chip{padding:5px 12px;border-radius:6px;font-size:13px;font-weight:700}
+.lg-chip.done{background:#B8E6C4;border:2px solid #2E9950;color:#15352B}
+.lg-chip.started{background:#FBF191;border:2px solid #C9A227;color:#4A3B00}
+.lg-chip.next{background:#FFDFAD;border:2px solid #E8860B;color:#5C3300}
 .match.done .meta{background:transparent}
 .hmspin{display:inline-flex;align-items:stretch}
 .hmspin input.hm{border-radius:6px 0 0 6px;width:80px}
@@ -617,16 +616,26 @@ function model(){
     m.winner=w;m.loser=w?(w===m.a?m.b:m.a):'';
   });
 
-  // Classement des petits groupes "poule à N" (quand le nombre réel de paires restantes est impair)
+  // Classement des petits groupes "poule à N" (quand le nombre réel de paires restantes est impair) — règle FFT : victoires, puis confrontation directe (2 ex-æquo) ou différence de sets puis de jeux (3+ ex-æquo)
   tabs.filter(t=>t.triangular).forEach(trio=>{
     const resolved=trio.entrants.map(res);
     if(resolved.some(id=>!id)){trio.complete=false;trio.rows=[];return}
-    const st={};resolved.forEach(id=>st[id]={id,v:0});
+    const st={};resolved.forEach(id=>st[id]={id,v:0,d:0,sw:0,sl:0,gw:0,gl:0});
     const ms=trio.matches;
-    ms.forEach(m=>{if(m.winner)st[m.winner].v++});
+    ms.forEach(m=>{
+      if(!m.winner)return;
+      const A=st[m.a],B=st[m.b],W=m.winner===m.a?A:B,L=W===A?B:A;W.v++;L.d++;
+      parseScore(D.scores[m.id]).sets.forEach(([x,y],k)=>{x=+x;y=+y;if(x>y){A.sw++;B.sl++}else if(y>x){B.sw++;A.sl++}
+        if(F.sets[k]!=='TB'){A.gw+=x;A.gl+=y;B.gw+=y;B.gl+=x}});
+    });
     const pw=id=>byId(id)?.poids??1e9;
     const h2h=(x,y)=>{const m=ms.find(mm=>(mm.a===x&&mm.b===y)||(mm.a===y&&mm.b===x));return m&&m.winner?(m.winner===x?-1:1):0};
-    const rows=Object.values(st).sort((x,y)=>y.v-x.v||h2h(x.id,y.id)||pw(x.id)-pw(y.id));
+    const sorted=Object.values(st).sort((x,y)=>y.v-x.v||0);
+    const rows=[];let i0=0;
+    while(i0<sorted.length){let j=i0;while(j<sorted.length&&sorted[j].v===sorted[i0].v)j++;const g=sorted.slice(i0,j);
+      if(g.length===2)g.sort((x,y)=>h2h(x.id,y.id)||((y.sw-y.sl)-(x.sw-x.sl))||((y.gw-y.gl)-(x.gw-x.gl))||pw(x.id)-pw(y.id));
+      else g.sort((x,y)=>((y.sw-y.sl)-(x.sw-x.sl))||((y.gw-y.gl)-(x.gw-x.gl))||pw(x.id)-pw(y.id));
+      rows.push(...g);i0=j}
     const complete=ms.every(m=>m.winner);
     trio.complete=complete;trio.rows=rows;
   });
@@ -649,14 +658,29 @@ function model(){
   real.forEach(m=>{
     if(m.isPool){m.phase=m.round-off;return}
     m.phase=2*m.depth-(m.tab.early?1:0);
+    if(m.triGroup)m.phase=Math.max(m.phase,3);
   });
   const last={};
+  const trioNext={};
+  let triCount=0;
   let t=start;
   [...new Set(real.map(m=>m.phase))].sort((a,b)=>a-b).forEach(ph=>{
     const ms=real.filter(m=>m.phase===ph).sort((x,y)=>x.lo-y.lo||x.idx-y.idx);
     let ps=t;ms.forEach(m=>{ps=m.isPool?Math.max(ps,(last[m.a]??-1e9)+rest,(last[m.b]??-1e9)+rest):Math.max(ps,ready(m.sa)??start,ready(m.sb)??start)});
     let end=ps;
-    ms.forEach((m,i)=>{
+    let ci=0;
+    ms.forEach(m=>{
+      if(m.triGroup){
+        // Poule à 3 : les 3 matchs partagent toujours une équipe deux à deux, donc jamais en parallèle.
+        const base=Math.max(ps,ready(m.sa)??start,ready(m.sb)??start,trioNext[m.triGroup.lo]??-Infinity);
+        m.time=D.times[m.id]!=null?D.times[m.id]:base;
+        m.court=D.courts[m.id]!=null&&D.courts[m.id]<=C?D.courts[m.id]:(triCount%C)+1;
+        triCount++;
+        trioNext[m.triGroup.lo]=m.time+dur+rest;
+        end=Math.max(end,m.time+dur);
+        return;
+      }
+      const i=ci++;
       m.time=D.times[m.id]!=null?D.times[m.id]:ps+Math.floor(i/C)*dur;
       m.court=D.courts[m.id]!=null&&D.courts[m.id]<=C?D.courts[m.id]:(i%C)+1;
       end=Math.max(end,m.time+dur);
@@ -872,11 +896,12 @@ function tabBlock(Mo,t,sub){
 }
 function triBlock(Mo,trio,sub){
   const rows=trio.rows||[];
+  const sign=v=>v>0?'+'+v:v;
   const inner=`
-    <div class="scroll"><table class="stand"><thead><tr><th>#</th><th>Paire</th><th class="num">Victoires</th></tr></thead><tbody>
-    ${rows.length?rows.map((r,k)=>`<tr><td class="num"><strong>${nth(trio.lo+k)}</strong></td><td>${esc(label(byId(r.id)))}</td><td class="num">${r.v}</td></tr>`).join(''):`<tr><td colspan="3" class="muted">En attente des équipes…</td></tr>`}
+    <div class="scroll"><table class="stand"><thead><tr><th>#</th><th>Paire</th><th class="num">V</th><th class="num">D</th><th class="num">Sets</th><th class="num">Jeux</th></tr></thead><tbody>
+    ${rows.length?rows.map((r,k)=>`<tr><td class="num"><strong>${nth(trio.lo+k)}</strong></td><td>${esc(label(byId(r.id)))}</td><td class="num">${r.v}</td><td class="num">${r.d}</td><td class="num">${sign(r.sw-r.sl)}</td><td class="num">${sign(r.gw-r.gl)}</td></tr>`).join(''):`<tr><td colspan="6" class="muted">En attente des équipes…</td></tr>`}
     </tbody></table></div>
-    <p class="muted" style="font-size:13px;margin:8px 0">${trio.complete?'Classement final de ce petit tableau.':'Poule à '+trio.entrants.length+' : chaque équipe affronte les deux autres, classement au nombre de victoires.'}</p>
+    <p class="muted" style="font-size:13px;margin:8px 0">${trio.complete?'Classement final (règle FFT : victoires, confrontation directe, puis différence de sets et de jeux).':'Poule à '+trio.entrants.length+' : chaque équipe affronte les deux autres. Classement FFT : victoires, puis confrontation directe ou sets/jeux.'}</p>
     <div class="ms">${trio.matches.map(m=>`<div class="mw">${matchBox(Mo,m,true)}</div>`).join('')}</div>`;
   return sub?`<div class="subtab"><h3 class="subtitle">${placesLabel(trio.lo,trio.hi)}</h3>${inner}</div>`:`<section class="card"><h2>${placesLabel(trio.lo,trio.hi)}</h2>${inner}</section>`;
 }
@@ -927,9 +952,9 @@ function vTableau(){
   return`
   <div class="row noprint" style="justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
     <div class="legend">
-      <span class="lg-item"><span class="lg-dot done"></span>Match terminé</span>
-      <span class="lg-item"><span class="lg-dot started"></span>Match en cours</span>
-      <span class="lg-item"><span class="lg-dot next"></span>Prochain match</span>
+      <span class="lg-chip done">Match terminé</span>
+      <span class="lg-chip started">Match en cours</span>
+      <span class="lg-chip next">Prochain match</span>
     </div>
     <button class="btn" id="pdfBtn">Extraire en PDF</button>
   </div>
