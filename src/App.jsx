@@ -839,12 +839,12 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
   const tabs = [
     { key: "planning", label: "Planning" },
     { key: "evenement", label: "Événement" },
+    { key: "tournoi", label: "Tournoi" },
     { key: "ouverture", label: "Ouverture" },
     { key: "fermeture", label: "Fermeture" },
     { key: "todo", label: "To do", badge: pendingActions },
     { key: "communication", label: "Communication", redBadge: commLate, orangeBadge: commSoon },
     { key: "stock", label: "Stock", badge: stockChecked.length },
-    { key: "tournoi", label: "Tournoi" },
   ];
   if (isManager) {
     tabs.push({ key: "cp", label: "CP" });
