@@ -172,6 +172,7 @@ td input[type=time]{width:110px} td input[type=number]{width:70px}
 table.stand td,table.stand th{padding:6px 8px}
 table.stand tr.qual td{background:var(--done);font-weight:600}
 .group{display:flex;flex-wrap:wrap;gap:18px 40px;align-items:flex-start}
+#tableauClassement section.card{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .branch{display:flex;flex-direction:column;gap:14px;align-items:flex-start}
 .branch .group{margin-left:28px;padding-left:16px;border-left:2px solid var(--line)}
 .subtab{min-width:0;max-width:100%;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
@@ -272,6 +273,21 @@ function parseScore(v){const n=String(v||'').match(/\d+/g)||[];const sets=[];for
 function autoWin(sc){const F=fmt();let wa=0,wb=0;F.sets.forEach((x,i)=>{const v=sc[i];if(!v||v[0]===''||v[1]===''||v[0]==null||v[1]==null)return;const a=+v[0],b=+v[1];if(isNaN(a)||isNaN(b)||a===b)return;a>b?wa++:wb++});return wa>=F.need?'a':wb>=F.need?'b':null}
 const TABS=[['import','1. Import'],['paires','2. Paires'],['tableau','3. Tableaux'],['planning','4. Planning'],['convoc','5. Convocations']];
 
+/* Positions des têtes de série : TS1 en bas, TS2 en haut, puis chaque autre tête de série dans un bloc libre du tableau.
+   Dans la moitié haute elle est placée en haut de son bloc (donc en haut du match), dans la moitié basse en bas du bloc. */
+function seedPositions(size,noShuffle){
+  const rank=[size-1,0],placed=[size-1,0];
+  for(let L=2;2**(L-1)<size;L++){
+    const bs=size/2**L,g=[];
+    for(let b=0;b<2**L;b++){
+      const s=b*bs,e=s+bs-1;
+      if(placed.some(q=>q>=s&&q<=e))continue;
+      g.push(s+e<size-1?s:e);
+    }
+    placed.push(...g);rank.push(...(noShuffle?g:shuffle(g)));
+  }
+  return rank;
+}
 function fresh(){return{tab:'import',settings:{name:'P100 Le Stadium',date:'',start:'9h00',courts:4,format:'D',dur:45,rest:30,early:15,seeds:'auto',tplWa:TPL_WA,tplSms:TPL_SMS,tplSmsGroup:TPL_SMS_GROUP,tplRelance:TPL_RELANCE},all:[],events:[],event:'',out:{},confirmed:{},paid:{},draw:null,sent:{},file:''}}
 let S; try{S=JSON.parse(localStorage.getItem(lsKey(CUR)))||fresh()}catch(e){S=fresh()}
 function normS(){
@@ -287,7 +303,7 @@ if(S.draw&&!S.draw.started)S.draw.started={};
 if(S.settings.tplWa===TPL_WA_V1)S.settings.tplWa=TPL_WA;
 if(S.settings.tplSms===TPL_SMS_V1)S.settings.tplSms=TPL_SMS;
 }
-normS();
+normS();fixTab();
 let UI={};let winTimer=null;
 /* Sauvegarde : dans le navigateur + partagée en ligne (staff) via Supabase */
 const SUPABASE_URL='https://sjqtjhsaljwrstquqnli.supabase.co';
@@ -551,8 +567,7 @@ function makePoolDraw(){
   const ents=[...direct.map(p=>({p:p.id,g:-1}))];
   for(let r=1;r<=c.Q;r++)pools.forEach((_,i)=>ents.push({q:[i,r],g:i}));
   const size=c.size;let byes=size-ents.length;
-  const rank=[size-1,0];
-  for(let L=2;2**(L-1)<size;L++){const step=size/2**(L-1);for(let j=1;j<2**(L-1);j+=2)rank.push(j*step-1,j*step)}
+  const rank=seedPositions(size,true);
   const slots=Array(size).fill(undefined),where=[];
   const nSeeds=Math.min(ents.length,c.X+c.P,size/2);
   const idxAt={};
@@ -632,8 +647,7 @@ function makeDraw(){
   let size=2;while(size<n)size*=2;
   const nSeeds=Math.min(n,S.settings.seeds==='auto'?autoSeeds(size):Number(S.settings.seeds));
   let byes=size-n;
-  const rank=[size-1,0];
-  for(let L=2;2**(L-1)<size;L++){const step=size/2**(L-1),g=[];for(let j=1;j<2**(L-1);j+=2)g.push(j*step-1,j*step);rank.push(...shuffle(g))}
+  const rank=seedPositions(size);
   const slots=Array(size).fill(undefined);
   for(let k=0;k<nSeeds;k++)slots[rank[k]]=ps[k].id;
   for(let k=0;k<nSeeds&&byes>0;k++){const nb=rank[k]^1;if(slots[nb]===undefined){slots[nb]=null;byes--}}
@@ -811,7 +825,7 @@ const placesLabel=(lo,hi)=>hi<=lo?`${nth(lo)} place`:hi===lo+1?`${nth(lo)} et ${
 const tabTitle=t=>t.main?'Tableau final':placesLabel(t.lo,t.rhi);
 function origin(M,src){ // match réel dont provient une source encore inconnue
   let m=M[src.m],t=src.t;
-  while(m.bye){const s=m.byeA?m.sb:m.sa;if(!s||s.p)return null;t=s.t;m=M[s.m]}
+  while(m.bye){const s=m.byeA?m.sb:m.sa;if(!s||s.p||s.tri)return null;if(s.q)return{q:s.q};t=s.t;m=M[s.m]}
   return{m,t};
 }
 function sideLabel(M,m,s){
@@ -819,12 +833,14 @@ function sideLabel(M,m,s){
   if(id===null)return'<span class="tbd">Exempt</span>';
   const sq=s==='a'?m.sa:m.sb;if(sq&&sq.q)return`<span class="tbd">${rankTxt(sq.q[1])} poule ${LET(sq.q[0])}</span>`;
   const o=origin(M,s==='a'?m.sa:m.sb);
+  if(o&&o.q)return`<span class="tbd">${rankTxt(o.q[1])} poule ${LET(o.q[0])}</span>`;
   return`<span class="tbd">${o?(o.t==='w'?'Vainqueur':'Perdant')+' M'+o.m.num:'À déterminer'}</span>`;
 }
 function oppText(M,m,pid){
   const s=m.a===pid?'b':'a';if(m[s])return label(byId(m[s]));
   const sq=s==='a'?m.sa:m.sb;if(sq&&sq.q)return`le ${rankTxt(sq.q[1])} de la poule ${LET(sq.q[0])}`;
   const o=origin(M,s==='a'?m.sa:m.sb);if(!o)return'à déterminer';
+  if(o.q)return`le ${rankTxt(o.q[1])} de la poule ${LET(o.q[0])}`;
   const who=o.t==='w'?'le vainqueur':'le perdant';
   return o.m.a&&o.m.b?`${who} du match ${label(byId(o.m.a))} contre ${label(byId(o.m.b))}`:`${who} du match M${o.m.num}`;
 }
