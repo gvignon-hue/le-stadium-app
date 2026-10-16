@@ -328,8 +328,32 @@ async function delKey(key){
   try{await fetch(SUPABASE_URL+'/rest/v1/app_storage?key=eq.'+encodeURIComponent(key),{method:'DELETE',headers:HDR})}catch(e){}
 }
 const fetchRemote=(id=CUR)=>getKey(stateKey(id));
+async function removedIds(){try{const v=await getKey('tournoi-removed');return Array.isArray(v)?v:[]}catch(e){return[]}}
+async function addRemoved(id){const l=await removedIds();if(!l.includes(id)){l.push(id);await putKey('tournoi-removed',l.slice(-300))}}
+/* le tournoi courant a été archivé/supprimé par quelqu'un d'autre : on le retire ici aussi */
+async function dropIfRemoved(){
+  const id=CUR;
+  if(UI.removing||!(await removedIds()).includes(id))return false;
+  if(id!==CUR)return false;
+  clearTimeout(syncTimer);
+  try{localStorage.removeItem(lsKey(id))}catch(e){}
+  let list=TLIST.filter(t=>t.id!==id);
+  try{const v=await getKey('tournoi-index');if(Array.isArray(v))list=v.filter(t=>t.id!==id)}catch(e){}
+  const rem=await removedIds();list=list.filter(t=>!rem.includes(t.id));
+  TLIST=list;
+  if(list.length)await switchTournament(list[0].id,true);
+  else{
+    CUR='t'+Date.now().toString(36);try{localStorage.setItem('tournoi-current',CUR)}catch(e){}
+    S=fresh();normS();lastRemoteAt=0;pendingRemote=null;UI={};TSIG='';
+    TLIST=[{id:CUR,name:S.settings.name,date:''}];saveLocal();
+  }
+  UI.ok='Ce tournoi a été archivé par un autre membre de l\'équipe.';
+  render();
+  return true;
+}
 async function pushRemote(){
   const id=CUR;
+  if(await dropIfRemoved())return;
   try{
     const value={state:JSON.stringify(shared()),by:CID,at:Date.now()};
     await putKey(stateKey(id),value);
@@ -354,6 +378,7 @@ async function updateIndex(mutator){
   try{const v=await getKey('tournoi-index');if(Array.isArray(v))remote=v}catch(e){remote=TLIST.slice()}
   const mine=TLIST.find(t=>t.id===CUR);
   mutator(remote);
+  { const rem=await removedIds(); if(!rem.includes(CUR)) remote=remote.filter(t=>!rem.includes(t.id)); else remote=remote.filter(t=>!rem.includes(t.id)&&t.id!==CUR); }
   if(CUR&&!remote.find(t=>t.id===CUR)&&mine&&!UI.removing)remote.push({id:CUR,name:mine.name,date:mine.date});
   const cur=remote.find(t=>t.id===CUR);
   if(cur){cur.name=S.settings.name||'Tournoi';cur.date=S.settings.date||''}
@@ -363,7 +388,10 @@ async function updateIndex(mutator){
 }
 async function refreshIndex(){
   try{
-    const v=await getKey('tournoi-index');
+    if(await dropIfRemoved())return;
+    const rem=await removedIds();
+    let v=await getKey('tournoi-index');
+    if(Array.isArray(v))v=v.filter(t=>!rem.includes(t.id));
     if(Array.isArray(v)){TLIST=v;if(!TLIST.find(t=>t.id===CUR)){syncIndexEntry();await putKey('tournoi-index',TLIST)}}
     else{syncIndexEntry();await putKey('tournoi-index',TLIST)}
   }catch(e){if(!TLIST.length)syncIndexEntry()}
@@ -402,19 +430,20 @@ async function removeCurrentTournament(msg){
   const old=CUR;
   UI.removing=1;
   clearTimeout(syncTimer);
+  try{await addRemoved(old)}catch(e){}
   await delKey(stateKey(old));
   try{localStorage.removeItem(lsKey(old))}catch(e){}
   let list=[];
   try{const v=await getKey('tournoi-index');if(Array.isArray(v))list=v}catch(e){list=TLIST.slice()}
-  list=list.filter(t=>t.id!==old);
+  { const rem=await removedIds(); list=list.filter(t=>t.id!==old&&!rem.includes(t.id)); }
   TLIST=list;
   if(list.length){
     try{await putKey('tournoi-index',list)}catch(e){}
     await switchTournament(list[0].id,true);
   }else{
-    CUR='default';try{localStorage.setItem('tournoi-current','default')}catch(e){}
+    CUR='t'+Date.now().toString(36);try{localStorage.setItem('tournoi-current',CUR)}catch(e){}
     S=fresh();normS();lastRemoteAt=0;pendingRemote=null;UI={};TSIG='';
-    TLIST=[{id:'default',name:S.settings.name,date:''}];
+    TLIST=[{id:CUR,name:S.settings.name,date:''}];
     try{await putKey('tournoi-index',TLIST)}catch(e){}
     saveLocal();
     await pushRemote();
@@ -472,6 +501,7 @@ async function pollRemote(){
     const d=await fetchRemote(id);
     if(id!==CUR)return;
     setSync('ok');
+    if(!d&&(await dropIfRemoved()))return;
     if(d&&d.by!==CID&&d.at!==lastRemoteAt){lastRemoteAt=d.at;applyRemote(d)}
     if(++pollN%6===0)refreshIndex();
   }catch(e){setSync('err')}
@@ -481,6 +511,7 @@ async function initSync(){
   try{
     const d=await fetchRemote(id);
     if(id!==CUR)return;
+    if(await dropIfRemoved())return;
     if(!d){if(S.all.length)pushRemote();else setSync('ok')}
     else{lastRemoteAt=d.at;if(d.by!==CID)applyRemote(d);setSync('ok')}
   }catch(e){setSync('local');return}
@@ -509,6 +540,7 @@ const active=()=>pairsOfEvent().filter(p=>!S.out[p.id]);
 const label=p=>p?`${p.p[0].nom} / ${p.p[1].nom}`:'';
 
 function importFile(file){
+  if(!S.settings.date){S._err='Renseignez d\'abord la date du tournoi pour pouvoir continuer.';render();delete S._err;return}
   const r=new FileReader();
   r.onload=e=>{
     try{
@@ -858,7 +890,7 @@ function render(){
   const tsel=document.getElementById('tsel');if(tsel)tsel.onchange=()=>switchTournament(tsel.value);
   const tnew=document.getElementById('tnew');if(tnew)tnew.onclick=()=>newTournament();
   const nav=document.getElementById('nav');
-  nav.innerHTML=TABS.map(([k,l])=>{const dis=(k!=='import'&&!S.all.length)||((k==='tableau'||k==='planning'||k==='convoc')&&!S.draw);return`<button data-tab="${k}" aria-current="${S.tab===k}" ${dis?'disabled':''}>${l}</button>`}).join('');
+  nav.innerHTML=TABS.map(([k,l])=>{const dis=(k!=='import'&&(!S.all.length||!S.settings.date))||((k==='tableau'||k==='planning'||k==='convoc')&&!S.draw);return`<button data-tab="${k}" aria-current="${S.tab===k}" ${dis?'disabled':''}>${l}</button>`}).join('');
   nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;UI.redraw=UI.reset=0;save();render()});
   const flash=(UI.err?`<div class="msg err">${esc(UI.err)}</div>`:'')+(UI.ok?`<div class="msg">${esc(UI.ok)}</div>`:'');UI.err=UI.ok='';
   document.getElementById('app').innerHTML=flash+({import:vImport,paires:vPaires,tableau:vTableau,planning:vPlanning,convoc:vConvoc})[S.tab]();
@@ -876,14 +908,15 @@ function vImport(){
     <h2>Tournoi</h2>
     <div class="row">
       <label class="f wide">Nom du tournoi<input type="text" data-set="name" value="${esc(s.name)}"></label>
-      <label class="f">Date<input type="date" data-set="date" value="${esc(s.date)}"></label>
+      <label class="f">Date <span style="color:#c0392b">*</span><input type="date" data-set="date" value="${esc(s.date)}" required style="${s.date?'':'border-color:#c0392b'}"></label>
     </div>
   </section>
   <section class="card">
     <h2>Liste des participants</h2>
+    ${s.date?'':'<div class="msg err">La date du tournoi est obligatoire : renseignez-la ci-dessus pour continuer.</div>'}
     <p class="help">Dans MOJA, exportez la liste des participants de l'épreuve au format Excel, puis déposez le fichier ici. Rien n'est envoyé sur un serveur : tout reste dans ce navigateur.</p>
     ${S._err?`<div class="msg err">${esc(S._err)}</div>`:''}
-    <label class="drop" id="drop"><input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
+    <label class="drop" id="drop" style="${s.date?'':'opacity:.45;pointer-events:none'}"><input type="file" id="file" accept=".xlsx,.xls,.csv" hidden ${s.date?'':'disabled'}>
       <strong>Choisir le fichier Excel</strong><br><span class="muted">ou le glisser ici</span></label>
     ${S.file?`<div class="msg">Fichier chargé : <strong>${esc(S.file)}</strong>, ${S.all.length} paires. Importer un nouveau fichier remplace le tournoi en cours.</div>`:''}
   </section>
