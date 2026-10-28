@@ -24,6 +24,44 @@ const PRESETS = [
   { key: "weekend", label: "Weekend", start: 9 * 60 + 30, end: 20 * 60 + 30 },
 ];
 
+const EXTRA_COLORS = { bg: "bg-pink-500", text: "text-pink-700" };
+function personColor(name, employees) {
+  const e = (employees || []).find((x) => x.name === name);
+  if (e) return EMP_PALETTE[e.colorIdx % EMP_PALETTE.length].bg;
+  if (name === "Tout le monde") return "bg-emerald-700";
+  const mi = MANAGERS.indexOf(name);
+  if (mi === 0) return "bg-indigo-600";
+  if (mi === 1) return "bg-sky-600";
+  return "bg-slate-500";
+}
+function PersonPill({ name, employees, dim }) {
+  const initial = (name || "?").trim().charAt(0).toUpperCase();
+  return (
+    <span className={"inline-flex items-center gap-1 rounded-full pl-0.5 pr-2 py-0.5 text-xs font-bold text-white whitespace-nowrap " + personColor(name, employees) + (dim ? " opacity-40" : "")}>
+      <span className="rounded-full bg-white flex items-center justify-center text-slate-700" style={{ width: "16px", height: "16px", fontSize: "10px" }}>{initial}</span>
+      {name}
+    </span>
+  );
+}
+function PersonCounters({ items, selected, onSelect, total, totalLate, employees }) {
+  const badge = (count, late) => (
+    <span className={"rounded-full text-white font-bold flex items-center justify-center " + (count === 0 ? "bg-slate-300" : late ? "bg-rose-500" : "bg-emerald-600")} style={{ minWidth: "20px", height: "20px", fontSize: "11px", padding: "0 5px" }}>{count}</span>
+  );
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-4">
+      <button onClick={() => onSelect("all")} className={"flex items-center gap-1.5 rounded-full border pl-3 pr-1.5 py-1 text-xs font-bold " + (selected === "all" ? "border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200" : "border-slate-200 bg-white text-slate-600")}>
+        Tous {badge(total, totalLate)}
+      </button>
+      {items.map((it) => (
+        <button key={it.name} onClick={() => onSelect(selected === it.name ? "all" : it.name)} className={"flex items-center gap-1.5 rounded-full border pl-1 pr-1.5 py-1 text-xs font-bold " + (selected === it.name ? "border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200" : "border-slate-200 bg-white text-slate-600") + (it.count === 0 && selected !== it.name ? " opacity-60" : "")}>
+          <span className={"rounded-full text-white flex items-center justify-center " + personColor(it.name, employees)} style={{ width: "20px", height: "20px", fontSize: "11px" }}>{it.name.trim().charAt(0).toUpperCase()}</span>
+          {it.name} {badge(it.count, it.late)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const EMP_PALETTE = [
   { bg: "bg-orange-500", text: "text-orange-700" },
   { bg: "bg-yellow-500", text: "text-yellow-700" },
@@ -728,13 +766,14 @@ export default function App() {
   const isManager = profile && profile.role === "manager";
   const dateLabel = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
   const oswald = { fontFamily: "'Oswald', sans-serif" };
+  const wide = activeTab === "planning" || activeTab === "evenement";
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <style>{"@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap');"}</style>
+      <style>{"@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap'); .evt-layout{display:block} .cal-cell{min-height:48px} .cal-chips{display:none} .cal-plus{display:none} .cal-dots{display:flex} .day-evt{width:9rem} @media (min-width:1024px){ .evt-layout{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;align-items:start} .cal-cell{min-height:118px} .cal-chips{display:flex;flex-direction:column} .cal-plus{display:flex} .cal-dots{display:none} .day-evt{width:22rem} .day-evt .text-xs{font-size:.85rem;line-height:1.25rem} }"}</style>
 
       <header className="px-4 py-3" style={{ background: "linear-gradient(135deg, #064e3b, #022c22)" }}>
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+        <div className="mx-auto flex items-center justify-between" style={{ maxWidth: wide ? "none" : "64rem" }}>
           <div className="relative">
             <button onClick={() => { setProfileOpen((o) => !o); setProfileType(null); }} className={"px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 " + (profile ? "bg-emerald-800 text-white border border-emerald-700" : "bg-amber-400 text-emerald-900")}>
               {profile ? (
@@ -808,7 +847,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-3 sm:px-4 py-5">
+      <main className="mx-auto px-3 sm:px-4 py-5" style={{ maxWidth: wide ? "none" : "64rem" }}>
         {!profile && (
           <div className="text-center py-16">
             <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-4">
@@ -920,9 +959,37 @@ function CommunicationTab({ profile, commActions, saveCommActions, eventEntries,
     return commActionStatus(action, todayISO, tomorrowISO);
   }
 
-  const sorted = [...commActions].sort((a, b) => (a.eventDate || "9999").localeCompare(b.eventDate || "9999"));
+  const [personFilter, setPersonFilter] = useState("all");
+  const isFor = (a, n) => a.assignee === n || a.assignee === "Tout le monde";
+  const sortedAll = [...commActions].sort((a, b) => (a.eventDate || "9999").localeCompare(b.eventDate || "9999"));
+  const sorted = personFilter === "all" ? sortedAll : sortedAll.filter((a) => isFor(a, personFilter));
   const todo = sorted.filter((a) => !commIsFullyDone(a));
   const done = sorted.filter((a) => commIsFullyDone(a));
+  const pendingAll = sortedAll.filter((a) => !commIsFullyDone(a));
+  const counterNames = [...new Set([...allNames, ...commActions.map((a) => a.assignee).filter((n) => n && n !== "Tout le monde")])];
+  const counterItems = counterNames.map((n) => {
+    const mine = pendingAll.filter((a) => isFor(a, n));
+    return { name: n, count: mine.length, late: mine.some((a) => commActionStatus(a, todayISO, tomorrowISO) === "late") };
+  });
+
+  async function toggleAllDone(action) {
+    const allDone = commIsFullyDone(action);
+    const next = commActions.map((a) =>
+      a.id === action.id
+        ? {
+            ...a,
+            channels: (a.channels || []).map((c) =>
+              allDone
+                ? { ...c, done: false, doneBy: null, doneTs: null }
+                : c.done
+                ? c
+                : { ...c, done: true, doneBy: profile.name, doneTs: Date.now() }
+            ),
+          }
+        : a
+    );
+    await saveCommActions(next);
+  }
 
   async function toggleChannelDone(action, channelKey) {
     const next = commActions.map((a) =>
@@ -973,12 +1040,14 @@ function CommunicationTab({ profile, commActions, saveCommActions, eventEntries,
         </button>
       </div>
 
+      <PersonCounters items={counterItems} selected={personFilter} onSelect={setPersonFilter} total={pendingAll.length} totalLate={pendingAll.some((a) => commActionStatus(a, todayISO, tomorrowISO) === "late")} employees={employees} />
+
       {todo.length === 0 ? (
         <div className="text-center text-slate-400 py-6 text-sm">Aucune communication en attente.</div>
       ) : (
         <div className="space-y-1.5 mb-3">
           {todo.map((a) => (
-            <CommRow key={a.id} action={a} status={actionStatus(a)} onToggleChannel={(k) => toggleChannelDone(a, k)} onEdit={() => setModal({ mode: "edit", ...a })} />
+            <CommRow key={a.id} action={a} status={actionStatus(a)} employees={employees} onToggleAll={() => toggleAllDone(a)} onToggleChannel={(k) => toggleChannelDone(a, k)} onEdit={() => setModal({ mode: "edit", ...a })} />
           ))}
         </div>
       )}
@@ -991,7 +1060,7 @@ function CommunicationTab({ profile, commActions, saveCommActions, eventEntries,
           {showArchive && (
             <div className="space-y-1.5 mb-3">
               {done.map((a) => (
-                <CommRow key={a.id} action={a} status="done" onToggleChannel={(k) => toggleChannelDone(a, k)} onEdit={() => setModal({ mode: "edit", ...a })} />
+                <CommRow key={a.id} action={a} status="done" employees={employees} onToggleAll={() => toggleAllDone(a)} onToggleChannel={(k) => toggleChannelDone(a, k)} onEdit={() => setModal({ mode: "edit", ...a })} />
               ))}
             </div>
           )}
@@ -1023,7 +1092,8 @@ function CommunicationTab({ profile, commActions, saveCommActions, eventEntries,
   );
 }
 
-function CommRow({ action, status, onToggleChannel, onEdit }) {
+function CommRow({ action, status, onToggleChannel, onToggleAll, onEdit, employees }) {
+  const fullyDone = commIsFullyDone(action);
   const todayISO = isoDate(new Date());
   const tomorrowISO = isoDate(addDays(new Date(), 1));
   const statusStyle = {
@@ -1044,11 +1114,18 @@ function CommRow({ action, status, onToggleChannel, onEdit }) {
   return (
     <div className={"rounded-lg border-2 px-3 py-2 " + statusStyle}>
       <div className="flex items-start justify-between gap-2">
+        <button
+          onClick={onToggleAll}
+          disabled={!(action.channels || []).length}
+          title={fullyDone ? "Marquer comme à faire" : "Tout marquer comme fait"}
+          className={"mt-0.5 w-5 h-5 rounded border shrink-0 flex items-center justify-center " + (fullyDone ? "bg-emerald-600 border-emerald-600" : "border-slate-400 bg-white")}
+        >
+          {fullyDone && <Check size={14} className="text-white" />}
+        </button>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-slate-700 truncate">
             {action.eventLabel}
             <span className="text-slate-400 font-normal"> · {fmtDateFR(action.eventDate)}</span>
-            {action.assignee && <span className="text-slate-400 font-normal"> · {action.assignee}</span>}
           </div>
           <div className="flex flex-wrap gap-1 mt-1">
             {(action.channels || []).map((c) => {
@@ -1075,6 +1152,7 @@ function CommRow({ action, status, onToggleChannel, onEdit }) {
           </div>
           {action.comment && <div className="text-xs text-slate-500 mt-1">{action.comment}</div>}
         </div>
+        {action.assignee && <div className="shrink-0"><PersonPill name={action.assignee} employees={employees} dim={fullyDone} /></div>}
         <button onClick={onEdit} className="text-slate-400 shrink-0"><Pencil size={14} /></button>
       </div>
     </div>
@@ -1251,7 +1329,6 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [viewSlot, setViewSlot] = useState(null);
-  const [view, setView] = useState("detail");
   const [weekPickerOpen, setWeekPickerOpen] = useState(false);
 
   const weekKey = isoDate(weekStart);
@@ -1304,6 +1381,9 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
     const endMin = Math.min(startMin + 120, RANGE_END);
     setModal({ mode: "add", id: null, day: dayIndex, employee, start: startMin, end: endMin, comment: "" });
   }
+  function openAddExtra(dayIndex) {
+    setModal({ mode: "add", id: null, day: dayIndex, employee: "", extra: true, start: 17 * 60, end: 23 * 60, comment: "" });
+  }
   function openEditModal(slot) {
     if (isManager) setModal({ mode: "edit", ...slot });
     else setViewSlot(slot);
@@ -1313,7 +1393,7 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
     let next;
     if (modal.mode === "add") {
       const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
-      next = [...slots, { id, day: modal.day, employee: modal.employee, start: data.start, end: data.end, comment: data.comment }];
+      next = [...slots, { id, day: modal.day, employee: data.employee || modal.employee, start: data.start, end: data.end, comment: data.comment, ...(modal.extra ? { extra: true } : {}) }];
     } else {
       next = slots.map((s) => (s.id === modal.id ? { ...s, start: data.start, end: data.end, comment: data.comment } : s));
     }
@@ -1384,30 +1464,12 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
         </button>
       </div>
 
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex bg-white rounded-lg border border-slate-200 p-0.5">
-          <button
-            onClick={() => setView("detail")}
-            className={"px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1 " + (view === "detail" ? "bg-emerald-600 text-white" : "text-slate-500")}
-          >
-            <LayoutGrid size={14} /> Détail
-          </button>
-          <button
-            onClick={() => setView("recap")}
-            className={"px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1 " + (view === "recap" ? "bg-emerald-600 text-white" : "text-slate-500")}
-          >
-            <Table2 size={14} /> Récap
-          </button>
-        </div>
-        {isManager && view === "detail" && (
-          <p className="text-xs text-slate-400 hidden sm:block">Touchez une ligne pour ajouter, un créneau pour le modifier.</p>
-        )}
-      </div>
+      {isManager && (
+        <p className="text-xs text-slate-400 mb-3 hidden sm:block">Touchez une ligne pour ajouter, un créneau pour le modifier. Le « + » à côté d'une date ajoute un extra.</p>
+      )}
 
       {loading ? (
         <div className="text-center text-slate-400 py-10">Chargement du planning…</div>
-      ) : view === "recap" ? (
-        <RecapView weekStart={weekStart} slots={slots} oswald={oswald} />
       ) : (
         Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map((date, dayIndex) => (
           <DayCard
@@ -1426,11 +1488,19 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
             markerFor={(employee) => markerFor(isoDate(date), employee)}
             onToggleMarker={(employee, type) => toggleMarker(isoDate(date), employee, type)}
             dayEvents={eventEntries.filter((e) => e.date === isoDate(date))}
+            onAddExtra={isManager ? openAddExtra : null}
           />
         ))
       )}
 
       {!loading && <WeeklyTotals slots={slots} oswald={oswald} employees={employees} />}
+
+      {!loading && (
+        <div className="mt-4">
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Récap — présence par heure</div>
+          <RecapView weekStart={weekStart} slots={slots} oswald={oswald} />
+        </div>
+      )}
 
       {modal && <SlotModal modal={modal} onClose={() => setModal(null)} onSave={handleSaveSlot} onDelete={handleDeleteSlot} oswald={oswald} employees={employees} />}
       {viewSlot && <SlotViewModal slot={viewSlot} onClose={() => setViewSlot(null)} oswald={oswald} employees={employees} />}
@@ -1438,7 +1508,7 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
   );
 }
 
-function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, currentEmployeeName, oswald, eventText, onEventChange, employees, markerFor, onToggleMarker, dayEvents }) {
+function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, currentEmployeeName, oswald, eventText, onEventChange, employees, markerFor, onToggleMarker, dayEvents, onAddExtra }) {
   const today = sameDay(date, new Date());
   const [editingEvent, setEditingEvent] = useState(false);
   const [draft, setDraft] = useState(eventText);
@@ -1459,7 +1529,14 @@ function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, curr
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-2.5 overflow-hidden">
       <div className={"px-3 py-1.5 border-b flex items-center justify-between " + (today ? "bg-amber-50 border-amber-100" : "bg-emerald-50 border-emerald-100")}>
-        <div className="font-bold text-emerald-900 text-sm" style={oswald}>{fmtDayLabel(date)}</div>
+        <div className="flex items-center gap-2">
+          <div className="font-bold text-emerald-900 text-sm" style={oswald}>{fmtDayLabel(date)}</div>
+          {onAddExtra && (
+            <button onClick={() => onAddExtra(dayIndex)} title="Ajouter un extra" className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+              <Plus size={13} />
+            </button>
+          )}
+        </div>
         {today && <span className="text-xs font-bold text-amber-600 uppercase">Aujourd'hui</span>}
       </div>
 
@@ -1472,16 +1549,19 @@ function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, curr
               ))}
             </div>
             <div className="px-2 pb-2">
-              {employees.map((empObj) => {
+              {[...employees, ...[...new Set(slots.map((s) => s.employee))].filter((n) => !employees.some((e) => e.name === n)).map((n) => ({ name: n, extra: true }))].map((empObj) => {
                 const emp = empObj.name;
                 const empSlots = slots.filter((s) => s.employee === emp);
                 const isMe = currentEmployeeName === emp;
-                const colors = empColor(emp, employees);
+                const colors = empObj.extra ? EXTRA_COLORS : empColor(emp, employees);
                 const marker = markerFor(emp);
                 return (
                   <div key={emp} className="flex items-center mb-1">
                     <div className={"w-24 shrink-0 text-xs font-semibold pr-2 truncate " + (isMe ? "text-amber-600" : "text-slate-600")}>{emp}</div>
-                    {isManager && (
+                    {isManager && empObj.extra && (
+                      <div className="shrink-0 mr-2.5 text-center text-xs font-bold text-pink-600" style={{ width: "3.75rem" }}>extra</div>
+                    )}
+                    {isManager && !empObj.extra && (
                       <div className="flex gap-1 mr-2.5 shrink-0">
                         <button
                           onClick={() => onToggleMarker(emp, marker === "cp" ? null : "cp")}
@@ -1535,7 +1615,7 @@ function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, curr
           </div>
         </div>
 
-        <div className="w-36 shrink-0 border-l border-slate-100 px-2 py-1.5 bg-slate-50">
+        <div className="day-evt shrink-0 border-l border-slate-100 px-2 py-1.5 bg-slate-50">
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Événement</div>
           {dayEvents && dayEvents.length > 0 && (
             <div className="space-y-1 mb-1.5">
@@ -1612,10 +1692,11 @@ function RecapView({ weekStart, slots, oswald }) {
 }
 
 function WeeklyTotals({ slots, oswald, employees }) {
-  const totals = employees.map((empObj) => {
+  const extraNames = [...new Set(slots.map((s) => s.employee))].filter((n) => !employees.some((e) => e.name === n));
+  const totals = [...employees, ...extraNames.map((n) => ({ name: n, extra: true }))].map((empObj) => {
     const emp = empObj.name;
     const minutes = slots.filter((s) => s.employee === emp).reduce((sum, s) => sum + (s.end - s.start), 0);
-    return { emp, hours: minutes / 60 };
+    return { emp, hours: minutes / 60, extra: !!empObj.extra };
   }).filter((t) => t.hours > 0);
 
   if (totals.length === 0) return null;
@@ -1630,8 +1711,8 @@ function WeeklyTotals({ slots, oswald, employees }) {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 mt-3">
       <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Total d'heures cette semaine</div>
       <div className="flex flex-wrap gap-2">
-        {totals.map(({ emp, hours }) => {
-          const colors = empColor(emp, employees);
+        {totals.map(({ emp, hours, extra }) => {
+          const colors = extra ? EXTRA_COLORS : empColor(emp, employees);
           return (
             <div key={emp} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50">
               <span className={"w-2.5 h-2.5 rounded-full " + colors.bg} />
@@ -1650,18 +1731,21 @@ function SlotModal({ modal, onClose, onSave, onDelete, oswald, employees }) {
   const [end, setEnd] = useState(modal.end);
   const [comment, setComment] = useState(modal.comment || "");
   const [error, setError] = useState("");
+  const [name, setName] = useState(modal.employee || "");
   const timeOptions = [];
   for (let m = RANGE_START; m <= RANGE_END; m += 30) timeOptions.push(m);
-  const colors = empColor(modal.employee, employees);
+  const colors = modal.extra ? EXTRA_COLORS : empColor(modal.employee, employees);
 
   function submit() {
+    if (modal.extra && !name.trim()) { setError("Indiquez le nom de l'extra."); return; }
     if (end <= start) { setError("L'heure de fin doit être après l'heure de début."); return; }
-    onSave({ start, end, comment });
+    onSave({ start, end, comment, employee: name.trim() });
   }
 
   function applyPreset(p) {
     if (modal.mode === "add") {
-      onSave({ start: p.start, end: p.end, comment });
+      if (modal.extra && !name.trim()) { setError("Indiquez le nom de l'extra."); return; }
+      onSave({ start: p.start, end: p.end, comment, employee: name.trim() });
       return;
     }
     setStart(p.start);
@@ -1675,7 +1759,11 @@ function SlotModal({ modal, onClose, onSave, onDelete, oswald, employees }) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="text-xs text-slate-400 uppercase tracking-wide">{DAY_NAMES[modal.day]}</div>
-            <div className={"font-bold " + colors.text} style={oswald}>{modal.employee}</div>
+            {modal.extra ? (
+              <input autoFocus value={name} onChange={(e) => { setName(e.target.value); setError(""); }} placeholder="Nom de l'extra" className="border border-pink-300 rounded-lg px-2 py-1 text-sm font-bold text-pink-700 mt-0.5" />
+            ) : (
+              <div className={"font-bold " + colors.text} style={oswald}>{modal.employee}</div>
+            )}
           </div>
           <button onClick={onClose} className="text-slate-400"><X size={20} /></button>
         </div>
@@ -1696,6 +1784,7 @@ function SlotModal({ modal, onClose, onSave, onDelete, oswald, employees }) {
           ))}
         </div>
         {modal.mode === "add" && <div className="text-xs text-slate-400 -mt-2 mb-4">Un créneau pré-rempli s'enregistre directement, sans passer par "Enregistrer".</div>}
+        {error && modal.extra && <div className="text-rose-600 text-xs mb-3">{error}</div>}
 
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
@@ -1897,6 +1986,8 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
         </div>
       ) : (
         <>
+      <div className="evt-layout">
+      <div style={{ minWidth: 0 }}>
       <div className="flex items-center justify-between mb-3">
         <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg bg-white shadow-sm border border-slate-200 text-slate-600">
           <ChevronLeft size={18} />
@@ -1927,15 +2018,39 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
             <button
               key={i}
               onClick={() => setSelectedDate(date)}
-              style={{ minHeight: "48px" }}
               className={
-                "rounded-lg border p-1 flex flex-col items-start " +
+                "cal-cell rounded-lg border p-1 flex flex-col items-start w-full text-left " +
                 (isSelected ? "bg-emerald-600 border-emerald-600" : isToday ? "bg-amber-50 border-amber-200" : "bg-white border-slate-100") +
                 (inMonth ? "" : " opacity-40")
               }
             >
-              <span className={"text-xs font-bold " + (isSelected ? "text-white" : "text-slate-700")}>{date.getDate()}</span>
-              <div className="flex flex-wrap gap-0.5 mt-auto">
+              <div className="flex w-full items-start justify-between">
+                <span className={"text-xs font-bold " + (isSelected ? "text-white" : "text-slate-700")}>{date.getDate()}</span>
+                <span
+                  role="button"
+                  title="Ajouter un évènement"
+                  onClick={(ev) => { ev.stopPropagation(); setSelectedDate(date); setModal({ mode: "add", id: null, date: dISO, kind: null }); }}
+                  className="cal-plus items-center justify-center rounded-full bg-emerald-600 text-white"
+                  style={{ width: "18px", height: "18px", border: isSelected ? "1px solid #fff" : "none" }}
+                >
+                  <Plus size={12} />
+                </span>
+              </div>
+              <div className="cal-chips gap-0.5 mt-1 w-full">
+                {entries.slice(0, 4).map((e) => (
+                  <span
+                    key={e.id}
+                    onClick={(ev) => { ev.stopPropagation(); setModal({ mode: "edit", ...e }); }}
+                    className={"rounded px-1 truncate w-full block " + kindStyle(e.kind)}
+                    style={{ fontSize: "11px", lineHeight: "16px" }}
+                    title={summarizeEntry(e)}
+                  >
+                    {summarizeEntry(e)}
+                  </span>
+                ))}
+                {entries.length > 4 && <span className={"text-xs " + (isSelected ? "text-white" : "text-slate-400")}>+{entries.length - 4} autres</span>}
+              </div>
+              <div className="cal-dots flex-wrap gap-0.5 mt-auto">
                 {entries.slice(0, 4).map((e) => (
                   <span key={e.id} className={"w-1.5 h-1.5 rounded-full " + dotColor(e.kind)} />
                 ))}
@@ -1945,6 +2060,8 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
         })}
       </div>
 
+      </div>
+      <div style={{ minWidth: 0 }}>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="px-3 py-2 bg-emerald-50 border-b border-emerald-100 font-bold text-emerald-900 text-sm" style={oswald}>
           {fmtDayLabel(selectedDate)}
@@ -2039,6 +2156,8 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
             );
           });
         })()}
+      </div>
+      </div>
       </div>
 
         </>
@@ -2586,17 +2705,16 @@ function TodoTab({ profile, isManager, actions, saveActions, managerActions, sav
     setPersonFilter(profile.role === "employe" ? profile.name : "all");
   }, [profile.name, profile.role]);
 
+  const todayISO = isoDate(new Date());
+  const pendingAll = [...(isManager ? managerActions : []), ...actions].filter((a) => !a.done);
+  const counterItems = allNames.map((n) => {
+    const mine = pendingAll.filter((a) => hasAssignee(a, n));
+    return { name: n, count: mine.length, late: mine.some((a) => a.date && a.date < todayISO) };
+  });
+
   return (
     <div>
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-xs font-semibold text-slate-500 shrink-0">Filtrer par personne</span>
-        <select value={personFilter} onChange={(e) => setPersonFilter(e.target.value)} className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm flex-1">
-          <option value="all">Tout le monde</option>
-          {allNames.map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </select>
-      </div>
+      <PersonCounters items={counterItems} selected={personFilter} onSelect={setPersonFilter} total={pendingAll.length} totalLate={pendingAll.some((a) => a.date && a.date < todayISO)} employees={employees} />
 
       {isManager && (
         <ActionsSection
@@ -2607,16 +2725,17 @@ function TodoTab({ profile, isManager, actions, saveActions, managerActions, sav
           personFilter={personFilter}
           oswald={oswald}
           title="Actions Managers"
+          employees={employees}
         />
       )}
 
-      <ActionsSection profile={profile} actions={actions} saveActions={saveActions} allNames={allNames} personFilter={personFilter} oswald={oswald} />
+      <ActionsSection profile={profile} actions={actions} saveActions={saveActions} allNames={allNames} personFilter={personFilter} oswald={oswald} employees={employees} />
       <ProjectsSection profile={profile} projects={projects} saveProjects={saveProjects} allNames={allNames} personFilter={personFilter} oswald={oswald} />
     </div>
   );
 }
 
-function ActionsSection({ profile, actions, saveActions, allNames, personFilter, oswald, title }) {
+function ActionsSection({ profile, actions, saveActions, allNames, personFilter, oswald, title, employees }) {
   const [modal, setModal] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
 
@@ -2679,7 +2798,7 @@ function ActionsSection({ profile, actions, saveActions, allNames, personFilter,
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100 mb-3">
           {todo.map((a) => (
-            <ActionRow key={a.id} action={a} onToggle={() => toggleDone(a)} onEdit={() => setModal({ mode: "edit", ...a })} oswald={oswald} />
+            <ActionRow key={a.id} action={a} onToggle={() => toggleDone(a)} onEdit={() => setModal({ mode: "edit", ...a })} oswald={oswald} employees={employees} />
           ))}
         </div>
       )}
@@ -2692,7 +2811,7 @@ function ActionsSection({ profile, actions, saveActions, allNames, personFilter,
           {showArchive && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100">
               {done.map((a) => (
-                <ActionRow key={a.id} action={a} onToggle={() => toggleDone(a)} onEdit={() => setModal({ mode: "edit", ...a })} oswald={oswald} />
+                <ActionRow key={a.id} action={a} onToggle={() => toggleDone(a)} onEdit={() => setModal({ mode: "edit", ...a })} oswald={oswald} employees={employees} />
               ))}
             </div>
           )}
@@ -2704,7 +2823,7 @@ function ActionsSection({ profile, actions, saveActions, allNames, personFilter,
   );
 }
 
-function ActionRow({ action, onToggle, onEdit, oswald }) {
+function ActionRow({ action, onToggle, onEdit, oswald, employees }) {
   const overdue = action.date && !action.done && action.date < isoDate(new Date());
   const prio = PRIORITIES.find((p) => p.key === action.priority);
   return (
@@ -2718,13 +2837,15 @@ function ActionRow({ action, onToggle, onEdit, oswald }) {
           {overdue && <span className="text-xs bg-rose-600 text-white font-bold rounded px-1.5 py-0.5">En retard</span>}
           {prio && <span className={"text-xs font-bold rounded px-1.5 py-0.5 " + prio.bg + " " + prio.text}>{prio.label}</span>}
           {action.date && <span className={"text-xs rounded px-1.5 py-0.5 " + (overdue ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500")}>{fmtDateFR(action.date)}</span>}
-          {(action.assignees || (action.assignee ? [action.assignee] : [])).map((n) => (
-            <span key={n} className="text-xs bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5">{n}</span>
-          ))}
           {action.freq && <span className="text-xs bg-amber-50 text-amber-700 rounded px-1.5 py-0.5">{action.freq}</span>}
           {action.done && <span className="text-xs text-slate-400">fait par {action.doneBy} le {new Date(action.doneTs).toLocaleDateString("fr-FR")}</span>}
         </div>
         {action.comment && <div className="text-xs text-slate-500 mt-1">{action.comment}</div>}
+      </div>
+      <div className="flex flex-col items-end gap-1 shrink-0" style={{ maxWidth: "45%" }}>
+        {(action.assignees || (action.assignee ? [action.assignee] : [])).map((n) => (
+          <PersonPill key={n} name={n} employees={employees} dim={action.done} />
+        ))}
       </div>
       <button onClick={onEdit} className="text-slate-400 shrink-0"><Pencil size={14} /></button>
     </div>
