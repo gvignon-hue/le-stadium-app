@@ -770,10 +770,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <style>{"@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap'); .evt-layout{display:block} .cal-cell{min-height:48px} .cal-chips{display:none} .cal-plus{display:none} .cal-dots{display:flex} .day-evt{width:9rem} @media (min-width:1024px){ .evt-layout{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;align-items:start} .cal-cell{min-height:118px} .cal-chips{display:flex;flex-direction:column} .cal-plus{display:flex} .cal-dots{display:none} .day-evt{width:22rem} .day-evt .text-xs{font-size:.85rem;line-height:1.25rem} }"}</style>
+      <style>{"@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap'); .evt-layout{display:block} .cal-cell{min-height:48px} .cal-chips{display:none} .cal-plus{display:none} .cal-dots{display:flex} .day-evt{width:9rem} .wide-main{max-width:none} .day-tl{min-width:700px} @media (min-width:1024px){ .evt-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:24px;align-items:start} .cal-cell{min-height:118px} .cal-chips{display:flex;flex-direction:column} .cal-plus{display:flex} .cal-dots{display:none} .day-evt{width:15rem} .wide-main{width:90%} .day-tl{min-width:520px} .plan-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:24px;align-items:start} .plan-side{position:sticky;top:12px} .evt-cal{order:2} .evt-side{order:1} .day-evt .text-xs{font-size:.85rem;line-height:1.25rem} }"}</style>
 
       <header className="px-4 py-3" style={{ background: "linear-gradient(135deg, #064e3b, #022c22)" }}>
-        <div className="mx-auto flex items-center justify-between" style={{ maxWidth: wide ? "none" : "64rem" }}>
+        <div className={"mx-auto flex items-center justify-between" + (wide ? " wide-main" : "")} style={wide ? undefined : { maxWidth: "64rem" }}>
           <div className="relative">
             <button onClick={() => { setProfileOpen((o) => !o); setProfileType(null); }} className={"px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 " + (profile ? "bg-emerald-800 text-white border border-emerald-700" : "bg-amber-400 text-emerald-900")}>
               {profile ? (
@@ -847,7 +847,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto px-3 sm:px-4 py-5" style={{ maxWidth: wide ? "none" : "64rem" }}>
+      <main className={"mx-auto px-3 sm:px-4 py-5" + (wide ? " wide-main" : "")} style={wide ? undefined : { maxWidth: "64rem" }}>
         {!profile && (
           <div className="text-center py-16">
             <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-4">
@@ -1471,7 +1471,7 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
       {loading ? (
         <div className="text-center text-slate-400 py-10">Chargement du planning…</div>
       ) : (
-        Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map((date, dayIndex) => (
+        <div className="plan-layout"><div style={{ minWidth: 0 }}>{Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map((date, dayIndex) => (
           <DayCard
             key={dayIndex}
             date={date}
@@ -1490,15 +1490,13 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
             dayEvents={eventEntries.filter((e) => e.date === isoDate(date))}
             onAddExtra={isManager ? openAddExtra : null}
           />
-        ))
-      )}
-
-      {!loading && <WeeklyTotals slots={slots} oswald={oswald} employees={employees} />}
-
-      {!loading && (
-        <div className="mt-4">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Récap — présence par heure</div>
+        ))}
+        </div>
+        <div className="plan-side" style={{ minWidth: 0 }}>
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 mt-3 lg:mt-0">Récap — présence par heure</div>
           <RecapView weekStart={weekStart} slots={slots} oswald={oswald} />
+          <WeeklyTotals slots={slots} oswald={oswald} employees={employees} />
+        </div>
         </div>
       )}
 
@@ -1542,7 +1540,7 @@ function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, curr
 
       <div className="flex">
         <div className="overflow-x-auto flex-1">
-          <div style={{ minWidth: "700px" }}>
+          <div className="day-tl">
             <div className="relative h-4 ml-24 mr-2 mt-1.5">
               {HOURS.map((h) => (
                 <div key={h} className="absolute text-slate-400 text-xs" style={{ left: pct(h * 60 - RANGE_START) + "%" }}>{h}h</div>
@@ -1664,29 +1662,30 @@ function RecapView({ weekStart, slots, oswald }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-      <div style={{ minWidth: "760px" }} className="p-2">
-        <div className="flex mb-1">
-          <div className="w-14 shrink-0" />
-          {HOURS.map((h) => (
-            <div key={h} className="flex-1 text-center text-xs text-slate-400">{h}h</div>
-          ))}
-        </div>
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2">
+      <div className="flex mb-1">
+        <div className="w-9 shrink-0" />
         {days.map((date, dayIndex) => (
-          <div key={dayIndex} className="flex items-center mb-1">
-            <div className="w-14 shrink-0 text-xs font-bold text-emerald-900" style={oswald}>{DAY_SHORT[dayIndex]} {date.getDate()}</div>
-            {HOURS.map((h) => {
-              const n = countAt(dayIndex, h);
-              return (
-                <div key={h} className={"flex-1 mx-0.5 h-7 rounded flex items-center justify-center text-xs font-bold " + shade(n)}>
-                  {n > 0 ? n : ""}
-                </div>
-              );
-            })}
+          <div key={dayIndex} className="flex-1 text-center text-xs font-bold text-emerald-900 leading-tight" style={oswald}>
+            {DAY_SHORT[dayIndex]}
+            <div className="font-normal text-slate-400">{date.getDate()}</div>
           </div>
         ))}
       </div>
-      <div className="px-3 pb-3 text-xs text-slate-400">Nombre d'employés présents par heure.</div>
+      {HOURS.map((h) => (
+        <div key={h} className="flex items-center mb-0.5">
+          <div className="w-9 shrink-0 text-xs text-slate-400">{h}h</div>
+          {days.map((_, dayIndex) => {
+            const n = countAt(dayIndex, h);
+            return (
+              <div key={dayIndex} className={"flex-1 mx-0.5 h-6 rounded flex items-center justify-center text-xs font-bold " + shade(n)}>
+                {n > 0 ? n : ""}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      <div className="px-1 pt-1.5 text-xs text-slate-400">Nombre d'employés présents par heure.</div>
     </div>
   );
 }
@@ -1987,7 +1986,7 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
       ) : (
         <>
       <div className="evt-layout">
-      <div style={{ minWidth: 0 }}>
+      <div className="evt-cal" style={{ minWidth: 0 }}>
       <div className="flex items-center justify-between mb-3">
         <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg bg-white shadow-sm border border-slate-200 text-slate-600">
           <ChevronLeft size={18} />
@@ -2061,7 +2060,7 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
       </div>
 
       </div>
-      <div style={{ minWidth: 0 }}>
+      <div className="evt-side" style={{ minWidth: 0 }}>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="px-3 py-2 bg-emerald-50 border-b border-emerald-100 font-bold text-emerald-900 text-sm" style={oswald}>
           {fmtDayLabel(selectedDate)}
