@@ -692,6 +692,7 @@ function swapPairs(idA,idB){
   return true;
 }
 function makeDraw(){
+  if(!S.settings.date){UI.err='Renseignez la date du tournoi (onglet Import) avant de faire le tirage.';return false}
   if(S.settings.mode==='poules')return makePoolDraw();
   const ps=active(),n=ps.length;
   if(n<2){UI.err='Il faut au moins 2 paires pour faire le tirage.';return false}
@@ -720,7 +721,7 @@ function model(){
   function build(lo,ents,tab,depth,parent){
     if(ents.length===1){places.push({place:lo,src:ents[0]});return}
     const realEnts=ents.filter(e=>!isBye(e));
-    if(!tab&&parent&&realEnts.length>=3&&realEnts.length%2===1&&realEnts.length<ents.length){
+    if(!tab&&parent&&parent.main&&realEnts.length===3&&realEnts.length<ents.length){
       const trio={lo,hi:lo+realEnts.length-1,triangular:true,entrants:realEnts,matches:[],rounds:[],main:false};
       trio.group=!parent||parent.main?trio:parent.group;
       trio.parent=parent&&!parent.main?parent:null;
@@ -1034,7 +1035,7 @@ function vPaires(){
     <h2>Tirage au sort</h2>
     <p class="help">${S.settings.mode==='poules'?'Les paires sont réparties en serpentin dans les poules selon leur poids. Dans le tableau final, les 1ers de poule sont placés comme têtes de série et deux paires d\'une même poule sont séparées au maximum.':'Les têtes de série sont placées selon la règle FFT (TS1 en bas, TS2 en haut, TS3 et TS4 tirées au milieu, etc.). Les exempts vont aux meilleures paires, les autres sont tirées au sort.'} Toutes les paires du tableau final jouent ensuite leurs matchs de classement.</p>
     ${S.draw?'<div class="msg">Un tableau existe déjà. Refaire le tirage efface les résultats saisis.</div>':''}
-    <div class="row"><button class="btn ball" id="draw">${UI.redraw?'Confirmer le nouveau tirage':S.draw?'Refaire le tirage':'Faire le tirage'}</button>${UI.redraw?'<button class="btn ghost" id="drawCancel">Annuler</button>':''}</div>
+    <div class="row"><button class="btn ball" id="draw" ${S.settings.date?'':'disabled title="Date du tournoi obligatoire"'}>${UI.redraw?'Confirmer le nouveau tirage':S.draw?'Refaire le tirage':'Faire le tirage'}</button>${UI.redraw?'<button class="btn ghost" id="drawCancel">Annuler</button>':''}</div>
   </section>`;
 }
 
