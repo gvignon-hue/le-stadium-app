@@ -266,7 +266,7 @@ Tu es attendu(e) à {heure}. Ok pour vous 2 ?
 Merci
 À {jour} !
 Grégoire`;
-const FORMATS={A:{l:'Format A (3 sets à 6 jeux)',dur:90,rest:90,sets:['S1','S2','S3'],need:2,ex:'6 4 3 6 6 2'},B:{l:'Format B (2 sets à 6 jeux, super tie-break)',dur:75,rest:60,sets:['S1','S2','TB'],need:2,ex:'6 4 3 6 10 8'},C:{l:'Format C (2 sets à 4 jeux, super tie-break)',dur:60,rest:30,sets:['S1','S2','TB'],need:2,ex:'4 2 2 4 10 7'},D:{l:'Format D (1 set à 9 jeux)',dur:45,rest:30,sets:['Set'],need:1,ex:'9 6'},E:{l:'Format E (super tie-break à 10 points)',dur:20,rest:15,sets:['TB'],need:1,ex:'10 8'}};
+const FORMATS={A:{l:'Format A (3 sets à 6 jeux)',dur:90,rest:90,sets:['S1','S2','S3'],need:2,ex:'6 4 3 6 6 2'},B:{l:'Format B (2 sets à 6 jeux, super tie-break)',dur:75,rest:60,sets:['S1','S2','TB'],need:2,ex:'6 4 3 6 10 8'},C:{l:'Format C (2 sets à 4 jeux, super tie-break)',dur:60,rest:30,sets:['S1','S2','TB'],need:2,ex:'4 2 2 4 10 7'},D:{l:'Format D (1 set à 9 jeux)',dur:45,rest:0,sets:['Set'],need:1,ex:'9 6'},E:{l:'Format E (super tie-break à 10 points)',dur:20,rest:15,sets:['TB'],need:1,ex:'10 8'}};
 const fmt=()=>FORMATS[S.settings.format]||FORMATS.D;
 const scoreStr=v=>Array.isArray(v)?v.filter(x=>x&&x[0]!==''&&x[1]!=='').map(x=>x.join('/')).join(' '):(v||'');
 function parseScore(v){const n=String(v||'').match(/\d+/g)||[];const sets=[];for(let i=0;i+1<n.length;i+=2)sets.push([n[i],n[i+1]]);const odd=n.length%2?n[n.length-1]:'';return{sets,txt:sets.map(x=>x.join('/')).join(' ')+(odd?(sets.length?' ':'')+odd:'')}}
@@ -288,9 +288,11 @@ function seedPositions(size,noShuffle){
   }
   return rank;
 }
-function fresh(){return{tab:'import',settings:{name:'P100 Le Stadium',date:'',start:'9h00',courts:4,format:'D',dur:45,rest:30,early:15,seeds:'auto',tplWa:TPL_WA,tplSms:TPL_SMS,tplSmsGroup:TPL_SMS_GROUP,tplRelance:TPL_RELANCE},all:[],events:[],event:'',out:{},confirmed:{},paid:{},draw:null,sent:{},file:''}}
+const migSet=o=>{if(o&&!o.restv){o.restv=2;if(o.format==='D'&&o.rest===30)o.rest=0}};
+function fresh(){return{tab:'import',settings:{name:'P100 Le Stadium',date:'',start:'9h00',courts:4,format:'D',dur:45,rest:0,restv:2,early:15,seeds:'auto',tplWa:TPL_WA,tplSms:TPL_SMS,tplSmsGroup:TPL_SMS_GROUP,tplRelance:TPL_RELANCE},all:[],events:[],event:'',out:{},confirmed:{},paid:{},draw:null,sent:{},file:''}}
 let S; try{S=JSON.parse(localStorage.getItem(lsKey(CUR)))||fresh()}catch(e){S=fresh()}
 function normS(){
+if(S.settings)migSet(S.settings);
 S.settings=Object.assign(fresh().settings,S.settings||{});
 if(TPL_OLD.includes(S.settings.tpl))S.settings.tpl=TPL;
 if(!S.settings.tplWa)S.settings.tplWa=S.settings.tpl&&!TPL_OLD.concat(TPL).includes(S.settings.tpl)?S.settings.tpl:TPL_WA;
@@ -331,9 +333,21 @@ const fetchRemote=(id=CUR)=>getKey(stateKey(id));
 async function removedIds(){try{const v=await getKey('tournoi-removed');return Array.isArray(v)?v:[]}catch(e){return[]}}
 async function addRemoved(id){const l=await removedIds();if(!l.includes(id)){l.push(id);await putKey('tournoi-removed',l.slice(-300))}}
 /* le tournoi courant a été archivé/supprimé par quelqu'un d'autre : on le retire ici aussi */
+const seenKey=id=>'tseen:'+id;
+const markSeen=id=>{try{localStorage.setItem(seenKey(id),'1')}catch(e){}};
+async function isGone(id){
+  if((await removedIds()).includes(id))return true;
+  // Secours : tournoi déjà vu en ligne, dont l'état a disparu et qui n'est plus dans la liste commune
+  try{
+    if(!localStorage.getItem(seenKey(id)))return false;
+    if(await getKey(stateKey(id)))return false;
+    const idx=await getKey('tournoi-index');
+    return Array.isArray(idx)&&!idx.some(t=>t.id===id);
+  }catch(e){return false}
+}
 async function dropIfRemoved(){
   const id=CUR;
-  if(UI.removing||!(await removedIds()).includes(id))return false;
+  if(UI.removing||!(await isGone(id)))return false;
   if(id!==CUR)return false;
   clearTimeout(syncTimer);
   try{localStorage.removeItem(lsKey(id))}catch(e){}
@@ -356,7 +370,7 @@ async function pushRemote(){
   if(await dropIfRemoved())return;
   try{
     const value={state:JSON.stringify(shared()),by:CID,at:Date.now()};
-    await putKey(stateKey(id),value);
+    await putKey(stateKey(id),value);markSeen(id);
     if(id===CUR)lastRemoteAt=value.at;
     setSync('ok');
     if(id===CUR&&syncIndexEntry())await updateIndex(()=>{});
@@ -486,6 +500,7 @@ function setSync(v){SYNC=v;const el=document.getElementById('sync');if(!el)retur
   el.textContent={local:'',ok:'',err:'Connexion perdue : enregistré sur cet appareil',ro:'Lecture seule : vous ne pouvez pas modifier ce tournoi'}[v]||'';el.dataset.s=v}
 function applyRemote(d){
   let st;try{st=JSON.parse(d.state)}catch(e){return}
+  migSet(st.settings);
   const tab=S.tab;S=Object.assign(fresh(),st);S.settings=Object.assign(fresh().settings,st.settings||{});S.tab=tab;
   if(!S.confirmed)S.confirmed={};if(!S.paid)S.paid={};if(S.draw&&!S.draw.started)S.draw.started={};
   if(!S.all.length&&S.tab!=='import')S.tab='import';if(!S.draw&&(S.tab==='tableau'||S.tab==='convoc'))S.tab='paires';
@@ -502,6 +517,7 @@ async function pollRemote(){
     if(id!==CUR)return;
     setSync('ok');
     if(!d&&(await dropIfRemoved()))return;
+    if(d)markSeen(id);
     if(d&&d.by!==CID&&d.at!==lastRemoteAt){lastRemoteAt=d.at;applyRemote(d)}
     if(++pollN%6===0)refreshIndex();
   }catch(e){setSync('err')}
@@ -575,10 +591,13 @@ const autoSeeds=size=>Math.max(2,size/4);
 const LET=i=>String.fromCharCode(65+i);
 const rankTxt=r=>r===1?'1er':r+'e';
 function poolCfg(n){
-  const s=S.settings;let P=Number(s.pnum)||Math.max(2,Math.round(n/4));
-  let X=Math.max(0,Number(s.pdirect)||0);
+  const s=S.settings;
+  // Par défaut : 14 paires = 6 directes + 2 poules de 4 (1er qualifié) ; 10 paires = 6 directes + 1 poule de 4 (2 qualifiés) -> tableau final à 8
+  const pre=n===14?{P:2,X:6,Q:1}:n===10?{P:1,X:6,Q:2}:null;
+  let P=Number(s.pnum)||(pre?pre.P:Math.max(2,Math.round(n/4)));
+  let X=Math.max(0,s.pdirect!=null&&s.pdirect!==''?(Number(s.pdirect)||0):(pre?pre.X:0));
   const rest=Math.max(0,n-X),min=Math.floor(rest/Math.max(1,P));
-  let Q=Number(s.pqual)||(min>=3?2:1);
+  let Q=Number(s.pqual)||(pre?pre.Q:(min>=3?2:1));
   const sizes=Array.from({length:P},(_,i)=>Math.floor(rest/P)+(i<rest%P?1:0));
   const total=X+P*Q;let size=2;while(size<total)size*=2;
   let err='';
@@ -799,36 +818,54 @@ function model(){
   //  4 : 1/2 + classement 5/8 · 5 : classement 9/10, 11/12, 13/14, 15/16 · 6 : finale + 3/4, 5/6, 7/8.
   // Règle : phase = 2 x (nombre de matchs déjà joués), moins 1 pour les paires qui ont perdu leur tout premier match.
   const off=pms.length?Math.max(...pms.map(m=>m.round))+1:0;
+  // Horaires par défaut (clé "place de départ/nombre de paires du tour" -> phase). Tableaux à 16, 12, 11 et 8 (tableau direct ou final de poules)
+  const nEnt=D.slots.filter(x=>x!==null).length;
+  const PRE8={ph:{'1/8':0,'1/4':1,'5/4':1,'1/2':2,'3/2':2,'5/2':2,'7/2':2}};
+  const PRE16={ph:{'1/16':0,'9/8':1,'1/8':2,'9/4':3,'13/4':3,'1/4':4,'5/4':4,'9/2':5,'11/2':5,'13/2':5,'15/2':5,'1/2':6,'3/2':6,'5/2':6,'7/2':6},
+    courts:{1:[3,1,4,2],2:[3,1,4,2],4:[3,4,1,2],5:[3,2,4,1]}};
+  const PRE12={ph:{'1/16':0,'9/4':1,'1/8':2,'5/4':3,'9/2':3,'11/2':3,'1/4':4,'5/2':4,'7/2':4,'1/2':5,'3/2':5}};
+  const PRE11={ph:{'1/16':0,'1/8':1,'5/4':2,'1/4':3,'5/2':3,'1/2':4,'3/2':4,'7/2':4},tri:[2,3,4]};
+  let PRE=null;
+  if(D.size===8&&nEnt===8)PRE=PRE8;
+  else if(D.mode!=='poules'&&D.size===16)PRE=nEnt===16?PRE16:nEnt===12?PRE12:nEnt===11?PRE11:null;
   real.forEach(m=>{
     if(m.isPool){m.phase=m.round-off;return}
     m.phase=2*m.depth-(m.tab.early?1:0);
     if(m.triGroup)m.phase=Math.max(m.phase,3);
+    if(PRE){
+      if(m.triGroup){const i=m.triGroup.matches.indexOf(m);if(PRE.tri&&PRE.tri[i]!=null)m.phase=PRE.tri[i]}
+      else{const v=PRE.ph[m.lo+'/'+m.n];if(v!=null)m.phase=v}
+    }
   });
+  const occ={};const occAdd=(tm,c)=>{(occ[tm]=occ[tm]||new Set()).add(c)};
+  const freeCourt=tm=>{for(let c=1;c<=C;c++)if(!(occ[tm]&&occ[tm].has(c)))return c;return 0};
   const last={};
   const trioNext={};
-  let triCount=0;
   let t=start;
   [...new Set(real.map(m=>m.phase))].sort((a,b)=>a-b).forEach(ph=>{
     const ms=real.filter(m=>m.phase===ph).sort((x,y)=>x.lo-y.lo||x.idx-y.idx);
     let ps=t;ms.forEach(m=>{ps=m.isPool?Math.max(ps,(last[m.a]??-1e9)+rest,(last[m.b]??-1e9)+rest):Math.max(ps,ready(m.sa)??start,ready(m.sb)??start)});
     let end=ps;
     let ci=0;
-    ms.forEach(m=>{
-      if(m.triGroup){
-        // Poule à 3 : les 3 matchs partagent toujours une équipe deux à deux, donc jamais en parallèle.
-        const base=Math.max(ps,ready(m.sa)??start,ready(m.sb)??start,trioNext[m.triGroup.lo]??-Infinity);
-        m.time=D.times[m.id]!=null?D.times[m.id]:base;
-        m.court=D.courts[m.id]!=null&&D.courts[m.id]<=C?D.courts[m.id]:(triCount%C)+1;
-        triCount++;
-        trioNext[m.triGroup.lo]=m.time+dur+rest;
-        end=Math.max(end,m.time+dur);
-        return;
-      }
+    ms.filter(m=>!m.triGroup).forEach(m=>{
       const i=ci++;
       m.time=D.times[m.id]!=null?D.times[m.id]:ps+Math.floor(i/C)*dur;
-      m.court=D.courts[m.id]!=null&&D.courts[m.id]<=C?D.courts[m.id]:(i%C)+1;
+      const pc=PRE&&PRE.courts&&PRE.courts[ph]&&C>=4?PRE.courts[ph][i]:null;
+      m.court=D.courts[m.id]!=null&&D.courts[m.id]<=C?D.courts[m.id]:(pc||((i%C)+1));
+      occAdd(m.time,m.court);
       end=Math.max(end,m.time+dur);
       if(m.isPool){last[m.a]=Math.max(last[m.a]??-1e9,m.time+dur);last[m.b]=Math.max(last[m.b]??-1e9,m.time+dur)}
+    });
+    // Poule à 3 : les 3 matchs partagent toujours une équipe deux à deux, donc jamais en parallèle.
+    ms.filter(m=>m.triGroup).forEach(m=>{
+      let tm=Math.max(ps,ready(m.sa)??start,ready(m.sb)??start,trioNext[m.triGroup.lo]??-Infinity);
+      const forced=D.times[m.id]!=null;
+      if(forced)tm=D.times[m.id];
+      let c=D.courts[m.id]!=null&&D.courts[m.id]<=C?D.courts[m.id]:freeCourt(tm);
+      if(!c&&!forced){while(!(c=freeCourt(tm)))tm+=dur}
+      m.time=tm;m.court=c||1;occAdd(m.time,m.court);
+      trioNext[m.triGroup.lo]=m.time+dur+rest;
+      end=Math.max(end,m.time+dur);
     });
     t=end;
   });
