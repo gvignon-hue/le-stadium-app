@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 import { supabase } from "./supabaseClient";
 import {
   ChevronLeft, ChevronRight, X, Trash2, MessageSquare,
-  Users, ChevronDown, Check, Plus, Pencil, LayoutGrid, Table2,
+  Users, ChevronDown, Check, Plus, Pencil, LayoutGrid, Table2, Repeat, CalendarDays, Settings2, Move,
 } from "lucide-react";
 
 const LOGO_B64 = "data:image/png;base64,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";
@@ -25,6 +25,16 @@ const PRESETS = [
 ];
 
 const EXTRA_COLORS = { bg: "bg-pink-500", text: "text-pink-700" };
+function ProfileChip({ label, active, manager, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={"shrink-0 rounded-full px-3 py-1.5 text-sm font-bold border " + (active ? "bg-amber-400 text-emerald-950 border-amber-300" : manager ? "bg-transparent text-emerald-200 border-emerald-600" : "bg-emerald-800 text-white border-emerald-700")}
+    >
+      {label}
+    </button>
+  );
+}
 function personColor(name, employees) {
   const e = (employees || []).find((x) => x.name === name);
   if (e) return EMP_PALETTE[e.colorIdx % EMP_PALETTE.length].bg;
@@ -576,9 +586,8 @@ async function storageListByPrefix(prefix) {
 }
 
 export default function App() {
-  const [profile, setProfile] = useState(null);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [profileType, setProfileType] = useState(null);
+  const [profile, setProfile] = useState({ name: "Équipe", role: "employe", generic: true });
+  const [loginFor, setLoginFor] = useState(null);
   const [managerSession, setManagerSession] = useState(null);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -598,6 +607,10 @@ export default function App() {
   const [eventGroups, setEventGroups] = useState([]);
   const [commDisabledTypes, setCommDisabledTypes] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [recTodo, setRecTodo] = useState([]);
+  const [recComm, setRecComm] = useState([]);
+  const [stockOthers, setStockOthers] = useState([]);
+  const [commRules, setCommRules] = useState({ lead: 15, types: {} });
   const [activeTab, setActiveTab] = useState("planning");
 
   useEffect(() => {
@@ -624,13 +637,24 @@ export default function App() {
       return;
     }
     setLoginPassword("");
+    if (loginFor) selectProfile(loginFor, "manager");
+    setLoginFor(null);
   }
 
   async function handleManagerLogout() {
     await supabase.auth.signOut();
-    setProfile(null);
-    setProfileType(null);
-    setProfileOpen(false);
+    setProfile({ name: "Équipe", role: "employe", generic: true });
+    setLoginFor(null);
+    setActiveTab((t) => (t === "reglages" || t === "cp" || t === "historique" ? "planning" : t));
+  }
+  function clickManager(name) {
+    if (managerSession) selectProfile(name, "manager");
+    else { setLoginFor(name); setLoginError(""); }
+  }
+  function selectGeneric() {
+    setProfile({ name: "Équipe", role: "employe", generic: true });
+    setLoginFor(null);
+    setActiveTab((t) => (t === "reglages" || t === "cp" || t === "historique" ? "planning" : t));
   }
 
   useEffect(() => {
@@ -689,6 +713,10 @@ export default function App() {
     })();
     storageGet("comm-disabled-types", []).then(setCommDisabledTypes);
     storageGet("notes-list", []).then(setNotes);
+    storageGet("recurring-todo", []).then(setRecTodo);
+    storageGet("recurring-comm", []).then(setRecComm);
+    storageGet("stock-others", []).then(setStockOthers);
+    storageGet("comm-rules", { lead: 15, types: {} }).then((r) => setCommRules(r && r.types ? r : { lead: 15, types: {} }));
   }, []);
 
   const saveActions = useCallback(async (next) => {
@@ -756,11 +784,103 @@ export default function App() {
     await storageSet("notes-list", next);
   }, []);
 
+  const runRecurring = useCallback(async () => {
+    const today = isoDate(new Date());
+    const recT = (await storageGet("recurring-todo", [])) || [];
+    if (recT.length) {
+      const team = (await storageGet("actions-list", [])) || [];
+      const mgr = (await storageGet("manager-actions-list", [])) || [];
+      const rT = generateFromRecs(recT.filter((r) => r.list !== "managers"), team, today, buildTodoFromRec, (x) => !x.done);
+      const rM = generateFromRecs(recT.filter((r) => r.list === "managers"), mgr, today, buildTodoFromRec, (x) => !x.done);
+      if (rT.changed || rM.changed) {
+        if (rT.created.length) await saveActions([...team, ...rT.created]);
+        if (rM.created.length) await saveManagerActions([...mgr, ...rM.created]);
+        const merged = recT.map((r) => rT.recs.find((x) => x.id === r.id) || rM.recs.find((x) => x.id === r.id) || r);
+        setRecTodo(merged);
+        await storageSet("recurring-todo", merged);
+      }
+    }
+    const recC = (await storageGet("recurring-comm", [])) || [];
+    if (recC.length) {
+      const comm = (await storageGet("communication-actions", [])) || [];
+      const rC = generateFromRecs(recC, comm, today, buildCommFromRec, (x) => !commIsFullyDone(x));
+      if (rC.changed) {
+        if (rC.created.length) await saveCommActions([...comm, ...rC.created]);
+        setRecComm(rC.recs);
+        await storageSet("recurring-comm", rC.recs);
+      }
+    }
+    // Règles de communication : création automatique avant la 1re action
+    const rules = await storageGet("comm-rules", null);
+    if (rules && rules.types) {
+      const evs = (await storageGet("event-entries:v2", [])) || [];
+      const disabled = (await storageGet("comm-disabled-types", [])) || [];
+      const doneIds = (await storageGet("comm-auto-done", [])) || [];
+      const comm = (await storageGet("communication-actions", [])) || [];
+      const lead = rules.lead ?? 15;
+      const created = [];
+      const newDone = [...doneIds];
+      evs.forEach((ev) => {
+        if (!ev.date || ev.date < today || newDone.includes(ev.id)) return;
+        const key = commTypeKeyForEvent(ev);
+        if (disabled.includes(key)) return;
+        const r = rules.types[key];
+        if (!r || !r.channels || r.channels.length === 0) return;
+        if (comm.some((a) => a.eventId === ev.id)) { newDone.push(ev.id); return; }
+        const maxDays = Math.max(...r.channels.map((c) => Number(c.daysBefore) || 0));
+        const first = isoDate(addDays(parseISODate(ev.date), -maxDays));
+        const createFrom = isoDate(addDays(parseISODate(first), -lead));
+        if (today < createFrom) return;
+        created.push({
+          id: "auto-" + ev.id,
+          eventId: ev.id,
+          eventDate: ev.date,
+          eventLabel: summarizeEntry(ev),
+          channels: r.channels.map((c) => ({ key: c.key, label: "", date: isoDate(addDays(parseISODate(ev.date), -(Number(c.daysBefore) || 0))), done: false })),
+          assignee: r.assignee || "Tout le monde",
+          comment: "",
+          createdBy: "Règles de communication",
+          createdTs: Date.now(),
+        });
+        newDone.push(ev.id);
+      });
+      if (created.length) await saveCommActions([...comm, ...created]);
+      if (newDone.length !== doneIds.length) await storageSet("comm-auto-done", newDone);
+    }
+  }, [saveActions, saveManagerActions, saveCommActions]);
+
+  const saveStockOthers = useCallback(async (next) => {
+    setStockOthers(next);
+    await storageSet("stock-others", next);
+  }, []);
+
+  const saveCommRules = useCallback(async (next) => {
+    setCommRules(next);
+    await storageSet("comm-rules", next);
+    await runRecurring();
+  }, [runRecurring]);
+
+  const saveRecTodo = useCallback(async (next) => {
+    setRecTodo(next);
+    await storageSet("recurring-todo", next);
+    await runRecurring();
+  }, [runRecurring]);
+  const saveRecComm = useCallback(async (next) => {
+    setRecComm(next);
+    await storageSet("recurring-comm", next);
+    await runRecurring();
+  }, [runRecurring]);
+
+  const todayKey = isoDate(now);
+  useEffect(() => {
+    const t = setTimeout(() => runRecurring(), 700);
+    return () => clearTimeout(t);
+  }, [todayKey, runRecurring, eventEntries]);
+
   function selectProfile(name, role) {
     setProfile({ name, role });
-    setProfileOpen(false);
-    setProfileType(null);
-    if (role !== "manager" && activeTab === "reglages") setActiveTab("planning");
+    setLoginFor(null);
+    if (role !== "manager" && (activeTab === "reglages" || activeTab === "cp" || activeTab === "historique")) setActiveTab("planning");
   }
 
   const isManager = profile && profile.role === "manager";
@@ -770,68 +890,39 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <style>{"@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap'); .evt-layout{display:block} .cal-cell{min-height:48px} .cal-chips{display:none} .cal-plus{display:none} .cal-dots{display:flex} .day-evt{width:9rem} .wide-main{max-width:none} .day-tl{min-width:700px} @media (min-width:1024px){ .evt-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:24px;align-items:start} .cal-cell{min-height:118px} .cal-chips{display:flex;flex-direction:column} .cal-plus{display:flex} .cal-dots{display:none} .day-evt{width:15rem} .wide-main{width:90%} .day-tl{min-width:520px} .plan-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:24px;align-items:start} .plan-side{position:sticky;top:12px} .evt-cal{order:2} .evt-side{order:1} .day-evt .text-xs{font-size:.85rem;line-height:1.25rem} }"}</style>
+      <style>{"@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap'); .evt-layout{display:block} .cal-cell{min-height:84px;padding:2px!important} .cal-chips{display:flex;flex-direction:column} .cal-plus{display:none} .cal-dots{display:none} .cal-plan{display:none} .cal-chip{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;word-break:break-word;font-size:9.5px;line-height:11px;padding:0 2px} .day-evt{width:9rem} .wide-main{max-width:none} .day-tl{min-width:700px} @media (min-width:1024px){ .evt-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:24px;align-items:start} .cal-cell{min-height:118px;padding:4px!important} .cal-plus{display:flex} .cal-plan{display:flex!important} .cal-chip{-webkit-line-clamp:1;font-size:11px;line-height:16px;padding:0 4px} .day-evt{width:15rem} .wide-main{width:90%} .day-tl{min-width:520px} .plan-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:24px;align-items:start} .plan-side{position:sticky;top:12px} .evt-cal{order:2} .evt-side{order:1} .day-evt .text-xs{font-size:.85rem;line-height:1.25rem} }"}</style>
 
       <header className="px-4 py-3" style={{ background: "linear-gradient(135deg, #064e3b, #022c22)" }}>
         <div className={"mx-auto flex items-center justify-between" + (wide ? " wide-main" : "")} style={wide ? undefined : { maxWidth: "64rem" }}>
-          <div className="relative">
-            <button onClick={() => { setProfileOpen((o) => !o); setProfileType(null); }} className={"px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 " + (profile ? "bg-emerald-800 text-white border border-emerald-700" : "bg-amber-400 text-emerald-900")}>
-              {profile ? (
-                <span className="text-left leading-tight">
-                  <span className="block">{profile.name}</span>
-                  <span className="block text-xs font-medium capitalize opacity-80">{profile.role === "manager" ? "Manager" : "Employé"}</span>
-                </span>
-              ) : (
-                <span>Sélectionner un profil</span>
+          <div className="relative flex-1 min-w-0 mr-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap py-0.5" style={{ scrollbarWidth: "none" }}>
+              <ProfileChip label="Employé" active={!!profile.generic} onClick={selectGeneric} />
+              {employees.map((e) => (
+                <ProfileChip key={e.id} label={e.name} active={!profile.generic && profile.role === "employe" && profile.name === e.name} onClick={() => selectProfile(e.name, "employe")} />
+              ))}
+              <span className="w-px h-5 bg-emerald-600 mx-1 shrink-0" />
+              {MANAGERS.map((n) => (
+                <ProfileChip key={n} label={n} manager active={profile.role === "manager" && profile.name === n} onClick={() => clickManager(n)} />
+              ))}
+              {managerSession && (
+                <button onClick={handleManagerLogout} className="shrink-0 text-xs text-emerald-300 underline ml-1">Déconnexion</button>
               )}
-              <ChevronDown size={16} />
-            </button>
-            {profileOpen && (
+            </div>
+            {loginFor && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => { setProfileOpen(false); setProfileType(null); }} />
-                <div className="absolute left-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-200 z-50 overflow-hidden">
-                  {!profileType ? (
-                    <div className="p-2">
-                      <button onClick={() => setProfileType("manager")} className="w-full text-left px-3 py-3 rounded-lg hover:bg-emerald-50 text-slate-800 font-semibold">
-                        Manager
-                      </button>
-                      <button onClick={() => setProfileType("employe")} className="w-full text-left px-3 py-3 rounded-lg hover:bg-emerald-50 text-slate-800 font-semibold">
-                        Employé
-                      </button>
-                    </div>
-                  ) : profileType === "manager" && !managerSession ? (
-                    <div>
-                      <button onClick={() => setProfileType(null)} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wide hover:bg-slate-50">
-                        ← Manager
-                      </button>
-                      <form onSubmit={handleManagerLogin} className="p-3 pt-1">
-                        <label className="text-xs font-semibold text-slate-500 mb-1 block">Email</label>
-                        <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2" />
-                        <label className="text-xs font-semibold text-slate-500 mb-1 block">Mot de passe</label>
-                        <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2" />
-                        {loginError && <div className="text-rose-600 text-xs mb-2">{loginError}</div>}
-                        <button type="submit" disabled={loginLoading} className="w-full py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm">
-                          {loginLoading ? "Connexion…" : "Se connecter"}
-                        </button>
-                      </form>
-                    </div>
-                  ) : (
-                    <div>
-                      <button onClick={() => setProfileType(null)} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wide hover:bg-slate-50">
-                        ← {profileType === "manager" ? "Manager" : "Employé"}
-                      </button>
-                      {(profileType === "manager" ? MANAGERS : employees.map((e) => e.name)).map((name) => (
-                        <button key={name} onClick={() => selectProfile(name, profileType)} className="w-full text-left px-4 py-2 hover:bg-emerald-50 text-slate-800 font-medium border-t border-slate-100">
-                          {name}
-                        </button>
-                      ))}
-                      {profileType === "manager" && (
-                        <button onClick={handleManagerLogout} className="w-full text-left px-4 py-2 text-xs text-slate-400 border-t border-slate-100 hover:bg-slate-50">
-                          Déconnexion manager
-                        </button>
-                      )}
-                    </div>
-                  )}
+                <div className="fixed inset-0 z-40" onClick={() => setLoginFor(null)} />
+                <div className="absolute left-0 top-full mt-2 w-72 bg-white rounded-xl shadow-lg border border-slate-200 z-50 overflow-hidden">
+                  <div className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wide">Connexion manager · {loginFor}</div>
+                  <form onSubmit={handleManagerLogin} className="p-3 pt-1">
+                    <label className="text-xs font-semibold text-slate-500 mb-1 block">Email</label>
+                    <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2" />
+                    <label className="text-xs font-semibold text-slate-500 mb-1 block">Mot de passe</label>
+                    <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2" />
+                    {loginError && <div className="text-rose-600 text-xs mb-2">{loginError}</div>}
+                    <button type="submit" disabled={loginLoading} className="w-full py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm">
+                      {loginLoading ? "Connexion…" : "Se connecter"}
+                    </button>
+                  </form>
                 </div>
               </>
             )}
@@ -859,14 +950,14 @@ export default function App() {
         )}
 
         {profile && (
-          <AppBody profile={profile} isManager={isManager} activeTab={activeTab} setActiveTab={setActiveTab} oswald={oswald} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} commActions={commActions} saveCommActions={saveCommActions} projects={projects} saveProjects={saveProjects} employees={employees} saveEmployees={saveEmployees} markers={markers} saveMarkers={saveMarkers} stockProducts={stockProducts} saveStockProducts={saveStockProducts} stockChecked={stockChecked} saveStockChecked={saveStockChecked} stockQty={stockQty} saveStockQty={saveStockQty} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} saveEventGroups={saveEventGroups} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} notes={notes} saveNotes={saveNotes} />
+          <AppBody stockOthers={stockOthers} saveStockOthers={saveStockOthers} commRules={commRules} saveCommRules={saveCommRules} recTodo={recTodo} saveRecTodo={saveRecTodo} recComm={recComm} saveRecComm={saveRecComm} profile={profile} isManager={isManager} activeTab={activeTab} setActiveTab={setActiveTab} oswald={oswald} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} commActions={commActions} saveCommActions={saveCommActions} projects={projects} saveProjects={saveProjects} employees={employees} saveEmployees={saveEmployees} markers={markers} saveMarkers={saveMarkers} stockProducts={stockProducts} saveStockProducts={saveStockProducts} stockChecked={stockChecked} saveStockChecked={saveStockChecked} stockQty={stockQty} saveStockQty={saveStockQty} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} saveEventGroups={saveEventGroups} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} notes={notes} saveNotes={saveNotes} />
         )}
       </main>
     </div>
   );
 }
 
-function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, managerActions, saveManagerActions, commActions, saveCommActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, stockQty, saveStockQty, eventEntries, saveEventEntries, eventGroups, saveEventGroups, commDisabledTypes, saveCommDisabledTypes, notes, saveNotes }) {
+function AppBody({ stockOthers, saveStockOthers, commRules, saveCommRules, recTodo, saveRecTodo, recComm, saveRecComm, profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, managerActions, saveManagerActions, commActions, saveCommActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, stockQty, saveStockQty, eventEntries, saveEventEntries, eventGroups, saveEventGroups, commDisabledTypes, saveCommDisabledTypes, notes, saveNotes }) {
   const todayISO = isoDate(new Date());
   const pendingOwnActions = actions.filter((a) => !a.done && hasAssignee(a, profile.name)).length;
   const pendingManagerActions = isManager ? managerActions.filter((a) => !a.done && hasAssignee(a, profile.name)).length : 0;
@@ -883,7 +974,7 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
     { key: "fermeture", label: "Fermeture" },
     { key: "todo", label: "To do", badge: pendingActions },
     { key: "communication", label: "Communication", redBadge: commLate, orangeBadge: commSoon },
-    { key: "stock", label: "Stock", badge: stockChecked.length },
+    { key: "stock", label: "Stock", badge: stockChecked.length + stockOthers.length },
   ];
   if (isManager) {
     tabs.push({ key: "cp", label: "CP" });
@@ -929,16 +1020,16 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
         ))}
       </div>
 
-      {activeTab === "planning" && <PlanningTab profile={profile} isManager={isManager} oswald={oswald} employees={employees} markers={markers} saveMarkers={saveMarkers} eventEntries={eventEntries} />}
-      {activeTab === "evenement" && <EvenementTab profile={profile} actions={actions} saveActions={saveActions} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} oswald={oswald} />}
-      {activeTab === "communication" && <CommunicationTab profile={profile} commActions={commActions} saveCommActions={saveCommActions} eventEntries={eventEntries} employees={employees} commDisabledTypes={commDisabledTypes} oswald={oswald} />}
+      {activeTab === "planning" && <PlanningTab profile={profile} isManager={isManager} oswald={oswald} employees={employees} markers={markers} saveMarkers={saveMarkers} eventEntries={eventEntries} actions={actions} commActions={commActions} />}
+      {activeTab === "evenement" && <EvenementTab employees={employees} profile={profile} actions={actions} saveActions={saveActions} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} oswald={oswald} />}
+      {activeTab === "communication" && <CommunicationTab profile={profile} isManager={isManager} commActions={commActions} saveCommActions={saveCommActions} eventEntries={eventEntries} eventGroups={eventGroups} employees={employees} commDisabledTypes={commDisabledTypes} commRules={commRules} saveCommRules={saveCommRules} recComm={recComm} saveRecComm={saveRecComm} oswald={oswald} />}
       {activeTab === "ouverture" && <ChecklistTab type="ouverture" title="Process ouverture" seed={OUVERTURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
       {activeTab === "fermeture" && <ChecklistTab type="fermeture" title="Process fermeture" seed={FERMETURE_SEED} isManager={isManager} profile={profile} oswald={oswald} />}
-      {activeTab === "todo" && <TodoTab profile={profile} isManager={isManager} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} projects={projects} saveProjects={saveProjects} employees={employees} oswald={oswald} />}
-      {activeTab === "stock" && <StockTab products={stockProducts} saveProducts={saveStockProducts} checked={stockChecked} saveChecked={saveStockChecked} qty={stockQty} saveQty={saveStockQty} oswald={oswald} />}
+      {activeTab === "todo" && <TodoTab recTodo={recTodo} saveRecTodo={saveRecTodo} profile={profile} isManager={isManager} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} projects={projects} saveProjects={saveProjects} employees={employees} oswald={oswald} />}
+      {activeTab === "stock" && <StockTab products={stockProducts} saveProducts={saveStockProducts} checked={stockChecked} saveChecked={saveStockChecked} qty={stockQty} saveQty={saveStockQty} others={stockOthers} saveOthers={saveStockOthers} oswald={oswald} />}
       {activeTab === "cp" && isManager && <CPTab markers={markers} employees={employees} oswald={oswald} />}
       {activeTab === "historique" && isManager && <HistoriqueTab oswald={oswald} />}
-      {activeTab === "reglages" && isManager && <SettingsTab employees={employees} saveEmployees={saveEmployees} eventGroups={eventGroups} saveEventGroups={saveEventGroups} saveActions={saveActions} saveEventEntries={saveEventEntries} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} oswald={oswald} />}
+      {activeTab === "reglages" && isManager && <SettingsTab eventEntries={eventEntries} employees={employees} saveEmployees={saveEmployees} eventGroups={eventGroups} saveEventGroups={saveEventGroups} saveActions={saveActions} saveEventEntries={saveEventEntries} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} oswald={oswald} />}
       {activeTab === "notes" && <NotesTab profile={profile} notes={notes} saveNotes={saveNotes} oswald={oswald} />}
       {activeTab === "tournoi" && <TournoiTab />}
     </div>
@@ -947,10 +1038,14 @@ function AppBody({ profile, isManager, activeTab, setActiveTab, oswald, actions,
 
 /* ---------------- COMMUNICATION ---------------- */
 
-function CommunicationTab({ profile, commActions, saveCommActions, eventEntries, employees, commDisabledTypes, oswald }) {
+function CommunicationTab({ profile, isManager, commActions, saveCommActions, eventEntries, eventGroups, employees, commDisabledTypes, commRules, saveCommRules, recComm, saveRecComm, oswald }) {
   const [modal, setModal] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
-  const allNames = [...MANAGERS, ...employees.filter((e) => e.doesComm).map((e) => e.name)];
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const [recOpen, setRecOpen] = useState(false);
+  const [calView, setCalView] = useState("week");
+  const [calAnchor, setCalAnchor] = useState(new Date());
+  const allNames = [...employees.filter((e) => e.doesComm).map((e) => e.name), ...MANAGERS];
   const todayISO = isoDate(new Date());
   const tomorrowISO = isoDate(addDays(new Date(), 1));
   const monthAheadISO = isoDate(addDays(new Date(), 30));
@@ -1023,6 +1118,14 @@ function CommunicationTab({ profile, commActions, saveCommActions, eventEntries,
     setModal(null);
   }
 
+  function createFromEvent(e) {
+    const existing = commActions.find((a) => a.eventId === e.id);
+    if (existing) { setModal({ mode: "edit", ...existing }); return; }
+    const r = (commRules.types || {})[commTypeKeyForEvent(e)];
+    const chans = r && r.channels ? r.channels.map((c) => ({ key: c.key, label: "", date: isoDate(addDays(parseISODate(e.date), -(Number(c.daysBefore) || 0))), done: false })) : [];
+    setModal({ mode: "add", id: null, eventId: e.id, eventDate: e.date, eventLabel: summarizeEntry(e), channels: chans, assignee: (r && r.assignee) || "Tout le monde", comment: "" });
+  }
+
   const upcomingEvents = eventEntries.filter((e) => e.date >= todayISO && e.date <= monthAheadISO).sort((a, b) => a.date.localeCompare(b.date));
 
   return (
@@ -1032,13 +1135,25 @@ function CommunicationTab({ profile, commActions, saveCommActions, eventEntries,
           <div className="font-bold text-emerald-900" style={oswald}>Communication</div>
           <div className="text-xs text-slate-400">Planning éditorial autour des évènements</div>
         </div>
+        <div className="flex flex-wrap gap-1.5 justify-end">
+        {isManager && (
+          <button onClick={() => setRulesOpen(true)} className="text-xs font-semibold text-emerald-700 border border-emerald-200 bg-white rounded-lg px-3 py-1.5 flex items-center gap-1 shrink-0">
+            <Settings2 size={14} /> Réglage communication
+          </button>
+        )}
+        <button onClick={() => setRecOpen(true)} className="text-xs font-semibold text-emerald-700 border border-emerald-200 bg-white rounded-lg px-3 py-1.5 flex items-center gap-1 shrink-0">
+          <Repeat size={14} /> Programmation{recComm.length > 0 ? " (" + recComm.length + ")" : ""}
+        </button>
         <button
           onClick={() => setModal({ mode: "add", id: null, eventId: "", eventDate: todayISO, eventLabel: "", channels: [], assignee: "Tout le monde", comment: "" })}
           className="text-xs font-semibold text-white bg-emerald-600 rounded-lg px-3 py-1.5 flex items-center gap-1 shrink-0"
         >
           <Plus size={14} /> Nouvelle communication
         </button>
+        </div>
       </div>
+
+      <CommCalendar commActions={commActions} view={calView} setView={setCalView} anchor={calAnchor} setAnchor={setCalAnchor} onEdit={(a) => setModal({ mode: "edit", ...a })} oswald={oswald} />
 
       <PersonCounters items={counterItems} selected={personFilter} onSelect={setPersonFilter} total={pendingAll.length} totalLate={pendingAll.some((a) => commActionStatus(a, todayISO, tomorrowISO) === "late")} employees={employees} />
 
@@ -1077,17 +1192,184 @@ function CommunicationTab({ profile, commActions, saveCommActions, eventEntries,
               const d = new Date(e.date + "T00:00:00");
               const label = DAY_SHORT[(d.getDay() + 6) % 7] + " " + String(d.getDate()).padStart(2, "0");
               return (
-                <div key={e.id} className="px-3 py-2 flex items-start gap-2">
+                <button key={e.id} onClick={() => createFromEvent(e)} className="w-full text-left px-3 py-2 flex items-start gap-2 hover:bg-emerald-50">
                   <span className="text-xs font-bold text-slate-400 w-14 shrink-0">{label}</span>
                   <span className="text-xs text-slate-600 flex-1">{summarizeEntry(e)}</span>
-                </div>
+                  {commActions.some((a) => a.eventId === e.id) ? (
+                    <span className="text-xs text-emerald-600 font-semibold shrink-0 flex items-center gap-0.5"><Check size={12} /> Com créée</span>
+                  ) : (
+                    <span className="text-xs text-emerald-700 font-semibold shrink-0 flex items-center gap-0.5"><Plus size={12} /> Créer une com</span>
+                  )}
+                </button>
               );
             })}
           </div>
         )}
       </div>
 
+      {rulesOpen && <CommRulesModal rules={commRules} saveRules={saveCommRules} eventGroups={eventGroups} allNames={allNames} oswald={oswald} onClose={() => setRulesOpen(false)} />}
+      {recOpen && <RecurringModal kind="comm" rules={commRules} saveRules={saveCommRules} eventGroups={eventGroups} recs={recComm} saveRecs={saveRecComm} allNames={allNames} employees={employees} isManager={isManager} oswald={oswald} onClose={() => setRecOpen(false)} />}
       {modal && <CommModal modal={modal} onClose={() => setModal(null)} onSave={handleSave} onDelete={handleDelete} eventEntries={eventEntries} allNames={allNames} commDisabledTypes={commDisabledTypes} oswald={oswald} />}
+    </div>
+  );
+}
+
+function CommCalendar({ commActions, view, setView, anchor, setAnchor, onEdit, oswald }) {
+  const todayISO = isoDate(new Date());
+  const items = {};
+  commActions.forEach((a) => {
+    (a.channels || []).forEach((c) => {
+      if (!c.date) return;
+      (items[c.date] = items[c.date] || []).push({ a, c });
+    });
+  });
+  let days;
+  let title;
+  if (view === "week") {
+    const ws = mondayOf(anchor);
+    days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
+    title = "Semaine du " + fmtShort(ws) + " au " + fmtShort(addDays(ws, 6));
+  } else {
+    const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const start = mondayOf(first);
+    const last = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+    const n = Math.ceil((((last - start) / 86400000) + 1) / 7) * 7;
+    days = Array.from({ length: n }, (_, i) => addDays(start, i));
+    const nm = first.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    title = nm.charAt(0).toUpperCase() + nm.slice(1);
+  }
+  function shift(dir) {
+    if (view === "week") setAnchor(addDays(anchor, 7 * dir));
+    else setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1));
+  }
+  const chipFor = ({ a, c }, i) => {
+    const t = COMM_TYPES.find((x) => x.key === c.key) || COMM_TYPES[5];
+    return (
+      <button
+        key={a.id + c.key + i}
+        onClick={() => onEdit(a)}
+        title={t.label + " — " + a.eventLabel}
+        className={"w-full text-left rounded px-1 py-0.5 mb-0.5 leading-tight truncate " + t.bg + " " + t.text + (c.done ? " line-through opacity-50" : "")}
+        style={{ fontSize: "11px" }}
+      >
+        {t.label}{c.key === "autre" && c.label ? " (" + c.label + ")" : ""} · {a.eventLabel}
+      </button>
+    );
+  };
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-1">
+          <button onClick={() => shift(-1)} className="p-1 rounded bg-slate-50 border border-slate-200 text-slate-600"><ChevronLeft size={16} /></button>
+          <div className="font-bold text-emerald-900 text-sm px-2" style={oswald}>{title}</div>
+          <button onClick={() => shift(1)} className="p-1 rounded bg-slate-50 border border-slate-200 text-slate-600"><ChevronRight size={16} /></button>
+          <button onClick={() => setAnchor(new Date())} className="text-xs text-amber-600 font-semibold ml-1">Aujourd'hui</button>
+        </div>
+        <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+          {[["week", "Semaine"], ["month", "Mois"]].map(([k, l]) => (
+            <button key={k} onClick={() => setView(k)} className={"text-xs font-bold px-3 py-1 " + (view === k ? "bg-emerald-600 text-white" : "bg-white text-slate-500")}>{l}</button>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <div style={{ minWidth: "640px" }}>
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {DAY_SHORT.map((d) => <div key={d} className="text-center text-xs font-bold text-slate-400">{d}</div>)}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {days.map((d) => {
+              const iso = isoDate(d);
+              const list = items[iso] || [];
+              const inMonth = view === "week" || d.getMonth() === anchor.getMonth();
+              const max = view === "week" ? 20 : 3;
+              return (
+                <div key={iso} className={"rounded-lg border p-1 " + (iso === todayISO ? "border-amber-300 bg-amber-50" : "border-slate-100 bg-slate-50") + (inMonth ? "" : " opacity-40")} style={{ minHeight: view === "week" ? "96px" : "70px" }}>
+                  <div className={"text-xs font-bold mb-0.5 " + (iso === todayISO ? "text-amber-600" : "text-slate-400")}>{d.getDate()}</div>
+                  {list.slice(0, max).map(chipFor)}
+                  {list.length > max && <div className="text-xs text-slate-400">+{list.length - max}</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CommRulesForm({ rules, saveRules, eventGroups, allNames, onDone }) {
+  const typeKeys = ["anniversaire", "reservation", "tournoi_fft", "tournoi_loisirs", ...eventGroups.map((g) => g.name)];
+  const [lead, setLead] = useState(rules.lead ?? 15);
+  const [types, setTypes] = useState(() => JSON.parse(JSON.stringify(rules.types || {})));
+  const get = (k) => types[k] || { assignee: "Tout le monde", channels: [] };
+  const setT = (k, patch) => setTypes((t) => ({ ...t, [k]: { ...get(k), ...patch } }));
+  function toggleChan(k, ck) {
+    const r = get(k);
+    const has = r.channels.some((c) => c.key === ck);
+    setT(k, { channels: has ? r.channels.filter((c) => c.key !== ck) : [...r.channels, { key: ck, daysBefore: 7 }] });
+  }
+  function setDays(k, ck, v) {
+    const r = get(k);
+    setT(k, { channels: r.channels.map((c) => (c.key === ck ? { ...c, daysBefore: Math.max(0, Number(v) || 0) } : c)) });
+  }
+  async function submit() {
+    await saveRules({ lead: Math.max(0, Number(lead) || 0), types });
+    onDone();
+  }
+  return (
+    <div>
+        <p className="text-xs text-slate-400 mb-3">Pour chaque type d'évènement : les canaux, combien de jours avant l'évènement, et le responsable. L'action de communication est créée automatiquement quelques jours avant la première publication.</p>
+        <div className="flex items-center gap-2 mb-4 bg-amber-50 rounded-lg px-3 py-2">
+          <span className="text-sm text-slate-700">Créer l'action</span>
+          <input type="number" min="0" value={lead} onChange={(e) => setLead(e.target.value)} className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-sm" />
+          <span className="text-sm text-slate-700">jours avant la date de la première action</span>
+        </div>
+        <div className="space-y-3 mb-4">
+          {typeKeys.map((k) => {
+            const r = get(k);
+            return (
+              <div key={k} className="border border-slate-200 rounded-xl p-3">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="font-bold text-slate-700 text-sm">{commTypeKeyLabel(k)}</div>
+                  <select value={r.assignee || "Tout le monde"} onChange={(e) => setT(k, { assignee: e.target.value })} className="border border-slate-200 rounded-lg px-2 py-1 text-xs">
+                    <option value="Tout le monde">Responsable : tout le monde</option>
+                    {allNames.map((n) => <option key={n} value={n}>Responsable : {n}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mb-1">
+                  {COMM_TYPES.filter((t) => t.key !== "autre").map((t) => (
+                    <button key={t.key} onClick={() => toggleChan(k, t.key)} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (r.channels.some((c) => c.key === t.key) ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>{t.label}</button>
+                  ))}
+                </div>
+                {r.channels.map((c) => {
+                  const t = COMM_TYPES.find((x) => x.key === c.key);
+                  return (
+                    <div key={c.key} className="flex items-center gap-2 mt-1.5 text-sm text-slate-600">
+                      <span className={"text-xs font-bold rounded px-1.5 py-0.5 " + t.bg + " " + t.text} style={{ minWidth: "7rem" }}>{t.label}</span>
+                      <input type="number" min="0" value={c.daysBefore} onChange={(e) => setDays(k, c.key, e.target.value)} className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-sm" />
+                      <span className="text-xs">jours avant l'évènement</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={submit} className="w-full py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm">Enregistrer</button>
+    </div>
+  );
+}
+
+function CommRulesModal({ rules, saveRules, eventGroups, allNames, oswald, onClose }) {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(15, 23, 42, 0.5)", zIndex: 50 }} onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full p-5 overflow-y-auto" style={{ maxWidth: "620px", maxHeight: "90vh" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="font-bold text-emerald-900 flex items-center gap-1.5" style={oswald}><Settings2 size={16} /> Réglage communication</div>
+          <button onClick={onClose} className="text-slate-400"><X size={20} /></button>
+        </div>
+        <CommRulesForm rules={rules} saveRules={saveRules} eventGroups={eventGroups} allNames={allNames} onDone={onClose} />
+      </div>
     </div>
   );
 }
@@ -1322,7 +1604,54 @@ function CommModal({ modal, onClose, onSave, onDelete, eventEntries, allNames, c
 
 
 
-function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarkers, eventEntries }) {
+function fmtHoursLabel(h) {
+  const whole = Math.floor(h + 1e-9);
+  const mins = Math.round((h - whole) * 60);
+  return mins === 0 ? whole + "h" : whole + "h" + String(mins).padStart(2, "0");
+}
+
+function MarkerModal({ info, onClose, onSave, onDelete, oswald }) {
+  const [type, setType] = useState(info.type);
+  const [hours, setHours] = useState(info.hours ?? 7);
+  const opts = [];
+  for (let h = 0.5; h <= 14; h += 0.5) opts.push(h);
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(15, 23, 42, 0.5)", zIndex: 50 }} onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full p-5" style={{ maxWidth: "380px" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="text-xs text-slate-400 uppercase tracking-wide">{fmtDateFR(info.date)}</div>
+            <div className="font-bold text-emerald-900" style={oswald}>{info.employee}</div>
+          </div>
+          <button onClick={onClose} className="text-slate-400"><X size={20} /></button>
+        </div>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <button onClick={() => setType("cp")} className={"py-2 rounded-lg text-sm font-bold border " + (type === "cp" ? "bg-slate-600 text-white border-slate-600" : "border-slate-200 text-slate-500")}>Congé payé</button>
+          <button onClick={() => setType("cours")} className={"py-2 rounded-lg text-sm font-bold border " + (type === "cours" ? "bg-sky-600 text-white border-sky-600" : "border-slate-200 text-slate-500")}>Cours</button>
+        </div>
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Heures déduites du total à faire</label>
+        <div className="flex gap-2 mb-1">
+          <select value={hours} onChange={(e) => setHours(Number(e.target.value))} className="flex-1 border border-slate-200 rounded-lg px-2 py-2 text-sm">
+            {opts.map((h) => <option key={h} value={h}>{fmtHoursLabel(h)}</option>)}
+          </select>
+          <button onClick={() => setHours(7)} className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600">Journée (7h)</button>
+        </div>
+        <p className="text-xs text-slate-400 mb-4">Par défaut, la journée entière : 7h en moins sur le temps de travail de la semaine.</p>
+        <div className="flex gap-2">
+          {info.exists && (
+            <button onClick={onDelete} className="px-3 py-2 rounded-lg border border-rose-200 text-rose-600 flex items-center gap-1 text-sm font-semibold"><Trash2 size={16} /> Retirer</button>
+          )}
+          <button onClick={() => onSave(type, hours)} className="flex-1 py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlanningTab({ profile, isManager: isManagerRole, oswald, employees, markers, saveMarkers, eventEntries, actions, commActions }) {
+  const [editMode, setEditMode] = useState(false);
+  const [markerModal, setMarkerModal] = useState(null);
+  const isManager = isManagerRole && editMode;
   const [weekStart, setWeekStart] = useState(mondayOf(new Date()));
   const [slots, setSlots] = useState([]);
   const [events, setEvents] = useState({});
@@ -1384,6 +1713,18 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
   function openAddExtra(dayIndex) {
     setModal({ mode: "add", id: null, day: dayIndex, employee: "", extra: true, start: 17 * 60, end: 23 * 60, comment: "" });
   }
+  function openRangeModal(dayIndex, employee, start, end) {
+    setModal({ mode: "add", id: null, day: dayIndex, employee, start, end, comment: "" });
+  }
+  async function handleMoveSlot(id, start, end) {
+    await saveSlots(slots.map((x) => (x.id === id ? { ...x, start, end } : x)));
+  }
+  function dueCount(name) {
+    const t = isoDate(new Date());
+    const a = (actions || []).filter((x) => !x.done && x.date && x.date <= t && (x.assignees || []).includes(name)).length;
+    const c = (commActions || []).filter((x) => x.assignee === name && (x.channels || []).some((ch) => !ch.done && ch.date && ch.date <= t)).length;
+    return a + c;
+  }
   function openEditModal(slot) {
     if (isManager) setModal({ mode: "edit", ...slot });
     else setViewSlot(slot);
@@ -1408,22 +1749,23 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
     await saveEvents({ ...events, [dayIndex]: text });
   }
 
-  function markerFor(dateISO, employee) {
-    const m = markers.find((mk) => mk.date === dateISO && mk.employee === employee);
-    return m ? m.type : null;
+  function markerObj(dateISO, employee) {
+    return markers.find((mk) => mk.date === dateISO && mk.employee === employee) || null;
   }
-  async function toggleMarker(dateISO, employee, type) {
+  async function saveMarker(dateISO, employee, type, hours) {
     const idx = markers.findIndex((mk) => mk.date === dateISO && mk.employee === employee);
     let next;
     if (type === null) {
       next = markers.filter((_, i) => i !== idx);
     } else if (idx >= 0) {
-      next = markers.map((mk, i) => (i === idx ? { ...mk, type } : mk));
+      next = markers.map((mk, i) => (i === idx ? { ...mk, type, hours } : mk));
     } else {
-      next = [...markers, { id: "mk-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), date: dateISO, employee, type }];
+      next = [...markers, { id: "mk-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), date: dateISO, employee, type, hours }];
     }
     await saveMarkers(next);
+    setMarkerModal(null);
   }
+  const weekMarkers = markers.filter((mk) => mk.date >= isoDate(weekStart) && mk.date <= isoDate(addDays(weekStart, 6)));
 
   const weekEnd = addDays(weekStart, 6);
 
@@ -1464,8 +1806,18 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
         </button>
       </div>
 
-      {isManager && (
-        <p className="text-xs text-slate-400 mb-3 hidden sm:block">Touchez une ligne pour ajouter, un créneau pour le modifier. Le « + » à côté d'une date ajoute un extra.</p>
+      {isManagerRole && (
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <p className="text-xs text-slate-400 hidden sm:block">
+            {editMode ? "Cliquez une ligne pour ajouter (créneau, CP ou cours). Sur ordinateur : glissez sur une ligne pour créer, glissez un créneau pour le déplacer, tirez ses bords pour l'agrandir. Le « + » à côté d'une date ajoute un extra." : "Planning en lecture seule. Cliquez sur « Modifier » pour changer le planning."}
+          </p>
+          <button
+            onClick={() => setEditMode((m) => !m)}
+            className={"shrink-0 ml-auto flex items-center gap-1.5 text-sm font-bold rounded-lg px-3 py-1.5 border " + (editMode ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-emerald-700 border-emerald-300")}
+          >
+            {editMode ? <><Check size={15} /> Terminer</> : <><Pencil size={15} /> Modifier</>}
+          </button>
+        </div>
       )}
 
       {loading ? (
@@ -1480,13 +1832,16 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
             isManager={isManager}
             onAddSlot={openAddModal}
             onEditSlot={openEditModal}
-            currentEmployeeName={profile.role === "employe" ? profile.name : null}
+            currentEmployeeName={profile.role === "employe" && !profile.generic ? profile.name : null}
             oswald={oswald}
             eventText={events[dayIndex] || ""}
             onEventChange={(text) => handleEventChange(dayIndex, text)}
             employees={employees}
-            markerFor={(employee) => markerFor(isoDate(date), employee)}
-            onToggleMarker={(employee, type) => toggleMarker(isoDate(date), employee, type)}
+            markerObj={(employee) => markerObj(isoDate(date), employee)}
+            onOpenMarker={(employee, type) => { const m = markerObj(isoDate(date), employee); setMarkerModal({ date: isoDate(date), employee, type: (m && m.type) || type || "cp", hours: m ? (m.hours ?? 7) : 7, exists: !!m }); }}
+            onMoveSlot={handleMoveSlot}
+            onAddRange={openRangeModal}
+            dueCount={dueCount}
             dayEvents={eventEntries.filter((e) => e.date === isoDate(date))}
             onAddExtra={isManager ? openAddExtra : null}
           />
@@ -1495,25 +1850,87 @@ function PlanningTab({ profile, isManager, oswald, employees, markers, saveMarke
         <div className="plan-side" style={{ minWidth: 0 }}>
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 mt-3 lg:mt-0">Récap — présence par heure</div>
           <RecapView weekStart={weekStart} slots={slots} oswald={oswald} />
-          <WeeklyTotals slots={slots} oswald={oswald} employees={employees} />
+          <WeeklyTotals slots={slots} oswald={oswald} employees={employees} markers={weekMarkers} />
         </div>
         </div>
       )}
 
-      {modal && <SlotModal modal={modal} onClose={() => setModal(null)} onSave={handleSaveSlot} onDelete={handleDeleteSlot} oswald={oswald} employees={employees} />}
+      {modal && <SlotModal modal={modal} onClose={() => setModal(null)} onSave={handleSaveSlot} onDelete={handleDeleteSlot} oswald={oswald} employees={employees} onPickMarker={(type) => { const m = modal; setModal(null); setMarkerModal({ date: isoDate(addDays(weekStart, m.day)), employee: m.employee, type, hours: 7, exists: false }); }} />}
+      {markerModal && <MarkerModal info={markerModal} onClose={() => setMarkerModal(null)} onSave={(type, hours) => saveMarker(markerModal.date, markerModal.employee, type, hours)} onDelete={() => saveMarker(markerModal.date, markerModal.employee, null, 0)} oswald={oswald} />}
       {viewSlot && <SlotViewModal slot={viewSlot} onClose={() => setViewSlot(null)} oswald={oswald} employees={employees} />}
     </div>
   );
 }
 
-function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, currentEmployeeName, oswald, eventText, onEventChange, employees, markerFor, onToggleMarker, dayEvents, onAddExtra }) {
+function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, currentEmployeeName, oswald, eventText, onEventChange, employees, markerObj, onOpenMarker, onMoveSlot, onAddRange, dueCount, dayEvents, onAddExtra }) {
   const today = sameDay(date, new Date());
   const [editingEvent, setEditingEvent] = useState(false);
   const [draft, setDraft] = useState(eventText);
 
+  const [drag, setDrag] = useState(null);
+  const dragRef = useRef(null);
+  const suppress = useRef(false);
+  const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  function beginDrag(e, rect, compute, finish) {
+    const x0 = e.clientX;
+    let moved = false;
+    const mv = (ev) => {
+      const dx = ev.clientX - x0;
+      if (!moved && Math.abs(dx) < 4) return;
+      moved = true;
+      const dm = Math.round(((dx / rect.width) * RANGE_TOTAL) / 30) * 30;
+      const r = compute(dm);
+      dragRef.current = r;
+      setDrag(r);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", mv);
+      window.removeEventListener("pointerup", up);
+      const r = dragRef.current;
+      dragRef.current = null;
+      setDrag(null);
+      if (moved && r) {
+        suppress.current = true;
+        setTimeout(() => { suppress.current = false; }, 0);
+        finish(r);
+      }
+    };
+    window.addEventListener("pointermove", mv);
+    window.addEventListener("pointerup", up);
+  }
+  function slotPointerDown(e, slot, mode) {
+    if (!isManager || e.pointerType !== "mouse" || e.button !== 0) return;
+    e.stopPropagation();
+    const rect = e.currentTarget.closest("[data-bar]").getBoundingClientRect();
+    const dur = slot.end - slot.start;
+    beginDrag(e, rect, (dm) => {
+      if (mode === "move") {
+        const st = clampN(slot.start + dm, RANGE_START, RANGE_END - dur);
+        return { id: slot.id, start: st, end: st + dur };
+      }
+      if (mode === "l") return { id: slot.id, start: clampN(slot.start + dm, RANGE_START, slot.end - 30), end: slot.end };
+      return { id: slot.id, start: slot.start, end: clampN(slot.end + dm, slot.start + 30, RANGE_END) };
+    }, (r) => onMoveSlot(slot.id, r.start, r.end));
+  }
+  function barPointerDown(e, emp) {
+    if (!isManager || e.pointerType !== "mouse" || e.button !== 0 || e.target.closest("[data-slot],[data-badge]")) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const anchor = clampN(Math.round((RANGE_START + ((e.clientX - rect.left) / rect.width) * RANGE_TOTAL) / 30) * 30, RANGE_START, RANGE_END);
+    beginDrag(e, rect, (dm) => {
+      let a = anchor, b = clampN(anchor + dm, RANGE_START, RANGE_END);
+      if (b < a) [a, b] = [b, a];
+      if (b - a < 30) {
+        b = Math.min(RANGE_END, a + 30);
+        a = b - 30;
+      }
+      return { id: "new", emp, start: a, end: b };
+    }, (r) => onAddRange(dayIndex, emp, r.start, r.end));
+  }
+
   function handleBarClick(e, employee) {
     if (!isManager) return;
-    if (markerFor(employee) === "cp") return;
+    if (suppress.current) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     onAddSlot(dayIndex, employee, x, rect.width);
@@ -1552,59 +1969,55 @@ function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, curr
                 const empSlots = slots.filter((s) => s.employee === emp);
                 const isMe = currentEmployeeName === emp;
                 const colors = empObj.extra ? EXTRA_COLORS : empColor(emp, employees);
-                const marker = markerFor(emp);
+                const mo = markerObj(emp);
+                const marker = mo ? mo.type : null;
+                const mh = mo ? (mo.hours ?? 7) : 7;
                 return (
                   <div key={emp} className="flex items-center mb-1">
-                    <div className={"w-24 shrink-0 text-xs font-semibold pr-2 truncate " + (isMe ? "text-amber-600" : "text-slate-600")}>{emp}</div>
-                    {isManager && empObj.extra && (
-                      <div className="shrink-0 mr-2.5 text-center text-xs font-bold text-pink-600" style={{ width: "3.75rem" }}>extra</div>
-                    )}
-                    {isManager && !empObj.extra && (
-                      <div className="flex gap-1 mr-2.5 shrink-0">
-                        <button
-                          onClick={() => onToggleMarker(emp, marker === "cp" ? null : "cp")}
-                          className={"w-7 h-6 rounded text-xs font-bold " + (marker === "cp" ? "bg-slate-600 text-white" : "bg-slate-100 text-slate-400")}
-                          title="Congé payé"
-                        >
-                          CP
-                        </button>
-                        <button
-                          onClick={() => onToggleMarker(emp, marker === "cours" ? null : "cours")}
-                          className={"w-7 h-6 rounded text-xs font-bold " + (marker === "cours" ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-400")}
-                          title="Cours"
-                        >
-                          C
-                        </button>
-                      </div>
-                    )}
-                    <div className="relative flex-1 h-6 bg-slate-50 rounded-md border border-slate-100" style={{ cursor: isManager && marker !== "cp" ? "pointer" : "default" }} onClick={(e) => handleBarClick(e, emp)}>
+                    <div className={"w-24 shrink-0 text-xs font-semibold pr-2 flex items-center gap-1 " + (isMe ? "text-amber-600" : empObj.extra ? "text-pink-600" : "text-slate-600")}>
+                      <span className="truncate">{emp}</span>
+                      {today && !empObj.extra && dueCount && dueCount(emp) > 0 && (
+                        <span title="Actions à faire aujourd'hui ou en retard" className="shrink-0 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white flex items-center justify-center" style={{ fontSize: "10px", lineHeight: 1 }}>{dueCount(emp)}</span>
+                      )}
+                    </div>
+                    <div data-bar="1" className="relative flex-1 h-6 bg-slate-50 rounded-md border border-slate-100" style={{ cursor: isManager ? "pointer" : "default" }} onPointerDown={(e) => barPointerDown(e, emp)} onClick={(e) => handleBarClick(e, emp)}>
                       {HOURS.map((h) => (
-                        <div key={h} className="absolute top-0 bottom-0 border-l border-slate-100" style={{ left: pct(h * 60 - RANGE_START) + "%" }} />
+                        <div key={h} className="absolute top-0 bottom-0 border-l border-slate-100 pointer-events-none" style={{ left: pct(h * 60 - RANGE_START) + "%" }} />
                       ))}
                       {marker === "cp" && (
-                        <div className="absolute inset-0 rounded-md bg-slate-300 flex items-center justify-center text-slate-600 text-xs font-bold">
-                          CP
+                        <div className={"absolute inset-0 rounded-md flex items-center justify-center pointer-events-none " + (mh >= 7 ? "bg-slate-300" : "")} style={mh < 7 ? { background: "repeating-linear-gradient(45deg, rgba(100,116,139,0.18), rgba(100,116,139,0.18) 6px, transparent 6px, transparent 12px)" } : undefined}>
+                          <span data-badge="1" onClick={(e) => { e.stopPropagation(); if (isManager) onOpenMarker(emp); }} className={"bg-slate-200 text-slate-600 text-xs font-bold px-1 rounded " + (isManager ? "pointer-events-auto cursor-pointer" : "")}>CP {fmtHoursLabel(mh)}</span>
                         </div>
                       )}
                       {marker === "cours" && (
                         <div
-                          className="absolute inset-0 rounded-md flex items-center px-1.5"
+                          className="absolute inset-0 rounded-md flex items-center px-1.5 pointer-events-none"
                           style={{ background: "repeating-linear-gradient(45deg, rgba(2,132,199,0.12), rgba(2,132,199,0.12) 6px, transparent 6px, transparent 12px)" }}
                         >
-                          <span className="bg-sky-100 text-sky-700 text-xs font-bold px-1 rounded">Cours</span>
+                          <span data-badge="1" onClick={(e) => { e.stopPropagation(); if (isManager) onOpenMarker(emp); }} className={"bg-sky-100 text-sky-700 text-xs font-bold px-1 rounded " + (isManager ? "pointer-events-auto cursor-pointer" : "")}>Cours {fmtHoursLabel(mh)}</span>
                         </div>
                       )}
-                      {empSlots.map((slot) => (
-                        <div
-                          key={slot.id}
-                          onClick={(e) => { e.stopPropagation(); onEditSlot(slot); }}
-                          className={"absolute top-0.5 bottom-0.5 rounded flex items-center px-1.5 text-white text-xs font-semibold overflow-hidden " + colors.bg}
-                          style={{ left: pct(slot.start - RANGE_START) + "%", width: pct(slot.end - slot.start) + "%", cursor: "pointer" }}
-                        >
-                          <span className="truncate">{fmtTime(slot.start)}–{fmtTime(slot.end)}</span>
-                          {slot.comment && <MessageSquare size={11} className="ml-1 shrink-0" />}
-                        </div>
-                      ))}
+                      {drag && drag.id === "new" && drag.emp === emp && (
+                        <div className={"absolute top-0.5 bottom-0.5 rounded opacity-60 pointer-events-none " + colors.bg} style={{ left: pct(drag.start - RANGE_START) + "%", width: pct(drag.end - drag.start) + "%" }} />
+                      )}
+                      {empSlots.map((slot) => {
+                        const d = drag && drag.id === slot.id ? drag : slot;
+                        return (
+                          <div
+                            key={slot.id}
+                            data-slot="1"
+                            onPointerDown={(e) => slotPointerDown(e, slot, "move")}
+                            onClick={(e) => { e.stopPropagation(); if (suppress.current) return; onEditSlot(slot); }}
+                            className={"absolute top-0.5 bottom-0.5 rounded flex items-center px-1.5 text-white text-xs font-semibold overflow-hidden select-none " + colors.bg + (drag && drag.id === slot.id ? " ring-2 ring-amber-400 z-10" : "")}
+                            style={{ left: pct(d.start - RANGE_START) + "%", width: pct(d.end - d.start) + "%", cursor: isManager ? "grab" : "pointer" }}
+                          >
+                            {isManager && <span onPointerDown={(e) => slotPointerDown(e, slot, "l")} className="absolute left-0 top-0 bottom-0 w-1.5 bg-black/20" style={{ cursor: "ew-resize" }} />}
+                            <span className="truncate">{fmtTime(d.start)}–{fmtTime(d.end)}</span>
+                            {slot.comment && <MessageSquare size={11} className="ml-1 shrink-0" />}
+                            {isManager && <span onPointerDown={(e) => slotPointerDown(e, slot, "r")} className="absolute right-0 top-0 bottom-0 w-1.5 bg-black/20" style={{ cursor: "ew-resize" }} />}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -1690,33 +2103,35 @@ function RecapView({ weekStart, slots, oswald }) {
   );
 }
 
-function WeeklyTotals({ slots, oswald, employees }) {
+function WeeklyTotals({ slots, oswald, employees, markers }) {
   const extraNames = [...new Set(slots.map((s) => s.employee))].filter((n) => !employees.some((e) => e.name === n));
-  const totals = [...employees, ...extraNames.map((n) => ({ name: n, extra: true }))].map((empObj) => {
+  const rows = [...employees.map((e) => ({ ...e })), ...extraNames.map((n) => ({ name: n, extra: true }))].map((empObj) => {
     const emp = empObj.name;
-    const minutes = slots.filter((s) => s.employee === emp).reduce((sum, s) => sum + (s.end - s.start), 0);
-    return { emp, hours: minutes / 60, extra: !!empObj.extra };
-  }).filter((t) => t.hours > 0);
+    const hours = slots.filter((s) => s.employee === emp).reduce((sum, s) => sum + (s.end - s.start), 0) / 60;
+    const off = empObj.extra ? 0 : (markers || []).filter((m) => m.employee === emp).reduce((sum, m) => sum + (m.hours ?? 7), 0);
+    const base = empObj.extra ? null : empObj.weeklyHours ?? 35;
+    const target = base === null ? null : Math.max(0, base - off);
+    return { emp, hours, target, off, extra: !!empObj.extra };
+  }).filter((t) => t.hours > 0 || (t.target !== null && t.target > 0));
 
-  if (totals.length === 0) return null;
-
-  function fmtHours(h) {
-    const whole = Math.floor(h);
-    const frac = h - whole;
-    return frac === 0 ? `${whole}h` : `${whole}h${Math.round(frac * 60)}`;
-  }
+  if (rows.length === 0) return null;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 mt-3">
-      <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Total d'heures cette semaine</div>
+      <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Heures de la semaine (faites / théoriques)</div>
       <div className="flex flex-wrap gap-2">
-        {totals.map(({ emp, hours, extra }) => {
+        {rows.map(({ emp, hours, target, off, extra }) => {
           const colors = extra ? EXTRA_COLORS : empColor(emp, employees);
+          const diff = target === null ? 0 : hours - target;
+          const box = target === null || Math.abs(diff) < 0.01 ? "bg-slate-50 border-slate-100" : diff < 0 ? "bg-yellow-50 border-yellow-200" : "bg-red-50 border-red-200";
           return (
-            <div key={emp} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50">
+            <div key={emp} title={off > 0 ? "Dont " + fmtHoursLabel(off) + " de CP / cours déduites" : ""} className={"flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border " + box}>
               <span className={"w-2.5 h-2.5 rounded-full " + colors.bg} />
               <span className="text-sm font-semibold text-slate-700">{emp}</span>
-              <span className="text-sm font-bold text-slate-900" style={oswald}>{fmtHours(hours)}</span>
+              <span className="text-sm font-bold text-slate-900" style={oswald}>{fmtHoursLabel(hours)}{target !== null ? "/" + fmtHoursLabel(target) : ""}</span>
+              {target !== null && Math.abs(diff) >= 0.01 && (
+                <span className={"text-xs font-semibold " + (diff < 0 ? "text-yellow-700" : "text-red-600")}>{diff < 0 ? "−" : "+"}{fmtHoursLabel(Math.abs(diff))}</span>
+              )}
             </div>
           );
         })}
@@ -1725,7 +2140,7 @@ function WeeklyTotals({ slots, oswald, employees }) {
   );
 }
 
-function SlotModal({ modal, onClose, onSave, onDelete, oswald, employees }) {
+function SlotModal({ modal, onClose, onSave, onDelete, oswald, employees, onPickMarker }) {
   const [start, setStart] = useState(modal.start);
   const [end, setEnd] = useState(modal.end);
   const [comment, setComment] = useState(modal.comment || "");
@@ -1767,6 +2182,12 @@ function SlotModal({ modal, onClose, onSave, onDelete, oswald, employees }) {
           <button onClick={onClose} className="text-slate-400"><X size={20} /></button>
         </div>
 
+        {modal.mode === "add" && !modal.extra && onPickMarker && (
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <button onClick={() => onPickMarker("cp")} className="py-2 rounded-lg text-sm font-bold bg-slate-100 text-slate-600">Congé payé (CP)</button>
+            <button onClick={() => onPickMarker("cours")} className="py-2 rounded-lg text-sm font-bold bg-sky-50 text-sky-700">Cours</button>
+          </div>
+        )}
         {modal.mode === "add" && (
           <div className="mb-3">
             <label className="text-xs font-semibold text-slate-500 mb-1 block">Commentaire (optionnel — visible par tous)</label>
@@ -1863,14 +2284,20 @@ function endOfMonth(d) {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0);
 }
 
-function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEntries, eventGroups, oswald }) {
+function EvenementTab({ employees, profile, actions, saveActions, eventEntries, saveEventEntries, eventGroups, oswald }) {
   const [monthStart, setMonthStart] = useState(startOfMonth(new Date()));
+  const [evView, setEvView] = useState("month");
+  const [evWeek, setEvWeek] = useState(mondayOf(new Date()));
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
   const [upcomingFilter, setUpcomingFilter] = useState("all");
 
   function changeMonth(delta) {
+    if (evView === "week") {
+      setEvWeek((w) => addDays(w, 7 * delta));
+      return;
+    }
     setMonthStart((m) => {
       const d = new Date(m);
       d.setMonth(d.getMonth() + delta);
@@ -1880,6 +2307,7 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
   function goToday() {
     const t = new Date();
     setMonthStart(startOfMonth(t));
+    setEvWeek(mondayOf(t));
     setSelectedDate(t);
   }
 
@@ -1927,16 +2355,41 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
     setModal(null);
   }
 
+  const [planBy, setPlanBy] = useState({});
+  const gridStartKey = isoDate(evView === "week" ? evWeek : mondayOf(startOfMonth(monthStart)));
+  const gridWeeks = evView === "week" ? 1 : Math.ceil((((endOfMonth(monthStart) - mondayOf(startOfMonth(monthStart))) / 86400000) + 1) / 7);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const out = {};
+      for (let w = 0; w < gridWeeks; w++) {
+        const mk = isoDate(addDays(parseISODate(gridStartKey), 7 * w));
+        const sl = (await storageGet("planning:" + mk, [])) || [];
+        sl.forEach((x) => {
+          const iso = isoDate(addDays(parseISODate(mk), x.day));
+          (out[iso] = out[iso] || []).push(x);
+        });
+      }
+      Object.values(out).forEach((l) => l.sort((a, b) => a.start - b.start));
+      if (!cancelled) setPlanBy(out);
+    })();
+    return () => { cancelled = true; };
+  }, [gridStartKey, gridWeeks]);
+
   const gridStart = mondayOf(startOfMonth(monthStart));
   const gridEndAnchor = endOfMonth(monthStart);
   const lastRowStart = mondayOf(gridEndAnchor);
   const gridEnd = addDays(lastRowStart, 6);
 
   const gridDays = [];
-  let cursor = new Date(gridStart);
-  while (cursor <= gridEnd) {
-    gridDays.push(new Date(cursor));
-    cursor = addDays(cursor, 1);
+  if (evView === "week") {
+    for (let k = 0; k < 7; k++) gridDays.push(addDays(evWeek, k));
+  } else {
+    let cursor = new Date(gridStart);
+    while (cursor <= gridEnd) {
+      gridDays.push(new Date(cursor));
+      cursor = addDays(cursor, 1);
+    }
   }
 
   const allWeeks = [];
@@ -1947,7 +2400,7 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
 
   const selectedISO = isoDate(selectedDate);
   const dayEntries = eventEntries.filter((e) => e.date === selectedISO);
-  const monthLabel = monthStart.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  const monthLabel = evView === "week" ? "Semaine du " + fmtShort(evWeek) + " au " + fmtShort(addDays(evWeek, 6)) : monthStart.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
   const searchResults = search.trim()
     ? eventEntries
@@ -2000,6 +2453,14 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
         </button>
       </div>
 
+      <div className="flex justify-center mb-3">
+        <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+          {[["week", "Semaine"], ["month", "Mois"]].map(([k, l]) => (
+            <button key={k} onClick={() => { setEvView(k); if (k === "week") setEvWeek(mondayOf(selectedDate)); else setMonthStart(startOfMonth(selectedDate)); }} className={"text-xs font-bold px-4 py-1 " + (evView === k ? "bg-emerald-600 text-white" : "bg-white text-slate-500")}>{l}</button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-7 gap-1 mb-1">
         {DAY_SHORT.map((d) => (
           <div key={d} className="text-center text-xs font-bold text-slate-400">{d}</div>
@@ -2009,7 +2470,7 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
       <div className="grid grid-cols-7 gap-1 mb-4">
         {gridDays.map((date, i) => {
           const dISO = isoDate(date);
-          const inMonth = date.getMonth() === monthStart.getMonth();
+          const inMonth = evView === "week" || date.getMonth() === monthStart.getMonth();
           const entries = eventEntries.filter((e) => e.date === dISO);
           const isSelected = dISO === selectedISO;
           const isToday = sameDay(date, new Date());
@@ -2017,6 +2478,7 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
             <button
               key={i}
               onClick={() => setSelectedDate(date)}
+              style={evView === "week" ? { minHeight: "170px" } : undefined}
               className={
                 "cal-cell rounded-lg border p-1 flex flex-col items-start w-full text-left " +
                 (isSelected ? "bg-emerald-600 border-emerald-600" : isToday ? "bg-amber-50 border-amber-200" : "bg-white border-slate-100") +
@@ -2036,19 +2498,31 @@ function EvenementTab({ profile, actions, saveActions, eventEntries, saveEventEn
                 </span>
               </div>
               <div className="cal-chips gap-0.5 mt-1 w-full">
-                {entries.slice(0, 4).map((e) => (
+                {entries.slice(0, evView === "week" ? 12 : 4).map((e) => (
                   <span
                     key={e.id}
                     onClick={(ev) => { ev.stopPropagation(); setModal({ mode: "edit", ...e }); }}
-                    className={"rounded px-1 truncate w-full block " + kindStyle(e.kind)}
-                    style={{ fontSize: "11px", lineHeight: "16px" }}
+                    className={"cal-chip rounded w-full " + kindStyle(e.kind)}
                     title={summarizeEntry(e)}
                   >
                     {summarizeEntry(e)}
                   </span>
                 ))}
-                {entries.length > 4 && <span className={"text-xs " + (isSelected ? "text-white" : "text-slate-400")}>+{entries.length - 4} autres</span>}
+                {entries.length > (evView === "week" ? 12 : 4) && <span className={"text-xs " + (isSelected ? "text-white" : "text-slate-400")}>+{entries.length - 4} autres</span>}
               </div>
+              {(planBy[dISO] || []).length > 0 && (
+                <div className="cal-chips cal-plan gap-0.5 mt-1 w-full" style={{ borderTop: "1px dashed #cbd5e1", paddingTop: "3px" }}>
+                  {(planBy[dISO] || []).slice(0, evView === "week" ? 14 : 5).map((x) => {
+                    const c = (employees.some((em) => em.name === x.employee) ? empColor(x.employee, employees) : EXTRA_COLORS);
+                    return (
+                      <span key={x.id} className={"rounded px-1 truncate w-full block text-white " + c.bg} style={{ fontSize: "10px", lineHeight: "14px" }} title={x.employee + " " + fmtTime(x.start) + "–" + fmtTime(x.end)}>
+                        {(evView === "week" ? x.employee : x.employee.slice(0, 3)) + " " + fmtTime(x.start) + "–" + fmtTime(x.end)}
+                      </span>
+                    );
+                  })}
+                  {(planBy[dISO] || []).length > (evView === "week" ? 14 : 5) && <span className={"text-xs " + (isSelected ? "text-white" : "text-slate-400")}>+{(planBy[dISO] || []).length - (evView === "week" ? 14 : 5)}</span>}
+                </div>
+              )}
               <div className="cal-dots flex-wrap gap-0.5 mt-auto">
                 {entries.slice(0, 4).map((e) => (
                   <span key={e.id} className={"w-1.5 h-1.5 rounded-full " + dotColor(e.kind)} />
@@ -2696,13 +3170,377 @@ function TaskModal({ modal, groups, onClose, onSave, onDelete, oswald }) {
 
 /* ---------------- TO DO (ACTIONS + PROJETS) ---------------- */
 
-function TodoTab({ profile, isManager, actions, saveActions, managerActions, saveManagerActions, projects, saveProjects, employees, oswald }) {
-  const [personFilter, setPersonFilter] = useState(profile.role === "employe" ? profile.name : "all");
-  const allNames = [...MANAGERS, ...employees.map((e) => e.name)];
+/* ---------------- PROGRAMMATION (tâches récurrentes) ---------------- */
 
-  useEffect(() => {
-    setPersonFilter(profile.role === "employe" ? profile.name : "all");
-  }, [profile.name, profile.role]);
+function parseISODate(str) {
+  return new Date(str + "T00:00:00");
+}
+function daysInMonthOf(y, m) {
+  return new Date(y, m + 1, 0).getDate();
+}
+function nthWeekdayOfMonth(y, m, nth, wd) {
+  const n = daysInMonthOf(y, m);
+  if (nth === 5) {
+    for (let d = n; d >= 1; d--) if ((new Date(y, m, d).getDay() + 6) % 7 === wd) return d;
+    return null;
+  }
+  let c = 0;
+  for (let d = 1; d <= n; d++) {
+    if ((new Date(y, m, d).getDay() + 6) % 7 === wd) {
+      c++;
+      if (c === nth) return d;
+    }
+  }
+  return null;
+}
+const NTH_LABELS = { 1: "1er", 2: "2e", 3: "3e", 4: "4e", 5: "dernier" };
+function describeFreq(f) {
+  if (!f) return "";
+  const n = Math.max(1, Number(f.every) || 1);
+  if (f.unit === "day") return n === 1 ? "Tous les jours" : "Tous les " + n + " jours";
+  if (f.unit === "week") {
+    const days = (f.weekdays && f.weekdays.length ? [...f.weekdays].sort() : []).map((i) => DAY_NAMES[i].toLowerCase()).join(", ");
+    return (n === 1 ? "Chaque semaine" : "Toutes les " + n + " semaines") + (days ? " · " + days : "");
+  }
+  const every = n === 1 ? "Tous les mois" : "Tous les " + n + " mois";
+  if (f.mode === "nth") return every + " · le " + NTH_LABELS[f.nth || 1] + " " + DAY_NAMES[f.weekday || 0].toLowerCase();
+  if (f.monthDay === "last") return every + " · le dernier jour";
+  return every + " · le " + (Number(f.monthDay) || 1);
+}
+function recOccurrences(rec, fromISO, toISO) {
+  const out = [];
+  const f = rec.freq || {};
+  const start = rec.startDate || toISO;
+  const from = fromISO > start ? fromISO : start;
+  if (from > toISO) return out;
+  const every = Math.max(1, Number(f.every) || 1);
+  const startD = parseISODate(start);
+  const toD = parseISODate(toISO);
+  if (f.unit === "day") {
+    for (let d = new Date(startD); d <= toD; d = addDays(d, every)) {
+      const iso = isoDate(d);
+      if (iso >= from) out.push(iso);
+    }
+  } else if (f.unit === "week") {
+    const wds = f.weekdays && f.weekdays.length ? [...f.weekdays].sort() : [(startD.getDay() + 6) % 7];
+    for (let w = mondayOf(startD); w <= toD; w = addDays(w, 7 * every)) {
+      wds.forEach((i) => {
+        const iso = isoDate(addDays(w, i));
+        if (iso >= from && iso <= toISO && iso >= start) out.push(iso);
+      });
+    }
+  } else {
+    let y = startD.getFullYear();
+    let mo = startD.getMonth();
+    while (new Date(y, mo, 1) <= toD) {
+      let day;
+      if (f.mode === "nth") day = nthWeekdayOfMonth(y, mo, f.nth || 1, f.weekday || 0);
+      else day = Math.min(f.monthDay === "last" ? 31 : Number(f.monthDay) || startD.getDate(), daysInMonthOf(y, mo));
+      if (day) {
+        const iso = isoDate(new Date(y, mo, day));
+        if (iso >= from && iso <= toISO && iso >= start) out.push(iso);
+      }
+      mo += every;
+      y += Math.floor(mo / 12);
+      mo = mo % 12;
+    }
+  }
+  return out;
+}
+function nextOccurrence(rec) {
+  const today = isoDate(new Date());
+  const occ = recOccurrences(rec, today, isoDate(addDays(new Date(), 400)));
+  return occ[0] || null;
+}
+// Génère, pour chaque modèle actif, la dernière occurrence échue, sauf si une occurrence précédente est encore ouverte (elle reste active).
+function generateFromRecs(recs, existing, todayISO, build, isOpen) {
+  const created = [];
+  let changed = false;
+  const open = new Set(existing.filter(isOpen).map((x) => x.recId).filter(Boolean));
+  const ids = new Set(existing.map((x) => x.id));
+  const floor = isoDate(addDays(parseISODate(todayISO), -60));
+  const nextRecs = recs.map((rec) => {
+    if (rec.active === false) return rec;
+    const after = rec.lastGen ? isoDate(addDays(parseISODate(rec.lastGen), 1)) : rec.startDate || todayISO;
+    const occ = recOccurrences(rec, after > floor ? after : floor, todayISO);
+    if (!occ.length) return rec;
+    const d = occ[occ.length - 1];
+    const id = "rec-" + rec.id + "-" + d;
+    if (!ids.has(id) && !open.has(rec.id)) {
+      created.push(build(rec, d, id));
+      ids.add(id);
+      open.add(rec.id);
+    }
+    changed = true;
+    return { ...rec, lastGen: d };
+  });
+  return { recs: nextRecs, created, changed };
+}
+function buildTodoFromRec(rec, d, id) {
+  return {
+    id,
+    text: rec.text,
+    date: d,
+    assignees: rec.assignees && rec.assignees.length ? rec.assignees : ["Tout le monde"],
+    priority: rec.priority || "moyenne",
+    comment: rec.comment || "",
+    freq: describeFreq(rec.freq),
+    recId: rec.id,
+    done: false,
+    doneBy: null,
+    doneTs: null,
+    createdBy: "Programmation",
+    createdTs: Date.now(),
+  };
+}
+function buildCommFromRec(rec, d, id) {
+  return {
+    id,
+    eventId: "",
+    eventDate: d,
+    eventLabel: rec.text,
+    channels: [{ key: rec.channelKey || "reseaux", label: rec.channelLabel || "", date: d, done: false }],
+    assignee: rec.assignees && rec.assignees[0] ? rec.assignees[0] : "Tout le monde",
+    comment: rec.comment || "",
+    recId: rec.id,
+    createdBy: "Programmation",
+    createdTs: Date.now(),
+  };
+}
+
+function RecurringModal({ kind, recs, saveRecs, allNames, employees, isManager, oswald, onClose, rules, saveRules, eventGroups }) {
+  const [editor, setEditor] = useState(null);
+  const [tab, setTab] = useState("rec");
+  const title = kind === "comm" ? "Communications programmées" : "Tâches programmées";
+
+  async function handleSave(data) {
+    let next;
+    if (editor.mode === "add") {
+      next = [...recs, { id: "r" + Date.now().toString(36), active: true, lastGen: null, ...data }];
+    } else {
+      next = recs.map((r) => (r.id === editor.id ? { ...r, ...data } : r));
+    }
+    await saveRecs(next);
+    setEditor(null);
+  }
+  async function handleDelete(id) {
+    await saveRecs(recs.filter((r) => r.id !== id));
+    setEditor(null);
+  }
+  async function toggleActive(id) {
+    await saveRecs(recs.map((r) => (r.id === id ? { ...r, active: r.active === false } : r)));
+  }
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(15, 23, 42, 0.5)", zIndex: 50 }} onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full p-5 overflow-y-auto" style={{ maxWidth: "560px", maxHeight: "88vh" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="font-bold text-emerald-900 flex items-center gap-1.5" style={oswald}><Repeat size={16} /> {title}</div>
+          <button onClick={onClose} className="text-slate-400"><X size={20} /></button>
+        </div>
+        {kind === "comm" && (
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden mb-3">
+            {[["rec", "À date fixe"], ["type", "Par type d'évènement"]].map(([k, l]) => (
+              <button key={k} onClick={() => setTab(k)} className={"flex-1 text-xs font-bold py-1.5 " + (tab === k ? "bg-emerald-600 text-white" : "bg-white text-slate-500")}>{l}</button>
+            ))}
+          </div>
+        )}
+        {kind === "comm" && tab === "type" ? (
+          <CommRulesForm rules={rules} saveRules={saveRules} eventGroups={eventGroups} allNames={allNames} onDone={onClose} />
+        ) : (
+        <>
+        <p className="text-xs text-slate-400 mb-3">
+          {kind === "comm"
+            ? "Ces communications sont ajoutées automatiquement à la liste à chaque échéance. Tant qu'une occurrence n'est pas faite, elle reste active."
+            : "Ces tâches sont ajoutées automatiquement à la liste des actions à chaque échéance. Tant qu'une occurrence n'est pas faite, elle reste active."}
+        </p>
+
+        <button
+          onClick={() => setEditor({ mode: "add", text: "", assignees: ["Tout le monde"], priority: "moyenne", comment: "", freq: { unit: "week", every: 1, weekdays: [0], mode: "date", monthDay: 1, nth: 1, weekday: 0 }, startDate: isoDate(new Date()), list: "team", channelKey: "reseaux", channelLabel: "" })}
+          className="w-full mb-3 py-2 rounded-lg border border-dashed border-emerald-300 text-emerald-700 text-sm font-semibold flex items-center justify-center gap-1"
+        >
+          <Plus size={16} /> {kind === "comm" ? "Nouvelle communication programmée" : "Nouvelle tâche programmée"}
+        </button>
+
+        {recs.length === 0 ? (
+          <div className="text-center text-slate-400 py-6 text-sm">Rien de programmé pour l'instant.</div>
+        ) : (
+          <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+            {recs.map((r) => {
+              const nx = nextOccurrence(r);
+              return (
+                <div key={r.id} className={"px-3 py-2.5 flex items-start gap-2 " + (r.active === false ? "opacity-50" : "")}>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-slate-700">{r.text}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      <span className="text-xs bg-amber-50 text-amber-700 rounded px-1.5 py-0.5">{describeFreq(r.freq)}</span>
+                      {nx && r.active !== false && <span className="text-xs bg-slate-100 text-slate-500 rounded px-1.5 py-0.5">Prochaine : {fmtDateFR(nx)}</span>}
+                      {(r.assignees || []).map((n) => <PersonPill key={n} name={n} employees={employees} />)}
+                      {kind === "todo" && r.list === "managers" && <span className="text-xs bg-indigo-50 text-indigo-700 rounded px-1.5 py-0.5">Managers</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => toggleActive(r.id)} className="text-xs font-semibold text-slate-500 border border-slate-200 rounded px-1.5 py-0.5 shrink-0">{r.active === false ? "Activer" : "Pause"}</button>
+                  <button onClick={() => setEditor({ mode: "edit", ...r })} className="text-slate-400 shrink-0"><Pencil size={14} /></button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        </>
+        )}
+      </div>
+      {editor && <RecurringEditor kind={kind} editor={editor} allNames={allNames} isManager={isManager} oswald={oswald} onClose={() => setEditor(null)} onSave={handleSave} onDelete={() => handleDelete(editor.id)} />}
+    </div>
+  );
+}
+
+function RecurringEditor({ kind, editor, allNames, isManager, oswald, onClose, onSave, onDelete }) {
+  const [text, setText] = useState(editor.text || "");
+  const [assignee, setAssignee] = useState((editor.assignees && editor.assignees[0]) || "Tout le monde");
+  const [priority, setPriority] = useState(editor.priority || "moyenne");
+  const [comment, setComment] = useState(editor.comment || "");
+  const [freq, setFreq] = useState({ unit: "week", every: 1, weekdays: [0], mode: "date", monthDay: 1, nth: 1, weekday: 0, ...(editor.freq || {}) });
+  const [startDate, setStartDate] = useState(editor.startDate || isoDate(new Date()));
+  const [list, setList] = useState(editor.list || "team");
+  const [channelKey, setChannelKey] = useState(editor.channelKey || "reseaux");
+  const [channelLabel, setChannelLabel] = useState(editor.channelLabel || "");
+  const [error, setError] = useState("");
+  const upd = (patch) => setFreq((f) => ({ ...f, ...patch }));
+  const chip = (on) => "text-xs font-semibold rounded-full px-2.5 py-1 border " + (on ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500");
+
+  function submit() {
+    if (!text.trim()) { setError(kind === "comm" ? "Décrivez la communication." : "Le texte de la tâche est requis."); return; }
+    if (freq.unit === "week" && (!freq.weekdays || freq.weekdays.length === 0)) { setError("Choisissez au moins un jour de la semaine."); return; }
+    onSave({ text: text.trim(), assignees: [assignee], priority, comment, freq, startDate, list, channelKey, channelLabel });
+  }
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(15, 23, 42, 0.5)", zIndex: 60 }} onClick={(e) => { e.stopPropagation(); onClose(); }}>
+      <div className="bg-white rounded-2xl w-full p-5 overflow-y-auto" style={{ maxWidth: "440px", maxHeight: "90vh" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-bold text-emerald-900" style={oswald}>{editor.mode === "add" ? "Nouvelle programmation" : "Modifier la programmation"}</div>
+          <button onClick={onClose} className="text-slate-400"><X size={20} /></button>
+        </div>
+
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">{kind === "comm" ? "Communication" : "Tâche"}</label>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3" placeholder={kind === "comm" ? "Ex: Publier le planning du mois" : "Ex: Ménage badminton"} />
+
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Fréquence</label>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-sm text-slate-600">Tous les</span>
+          <input type="number" min="1" max="52" value={freq.every} onChange={(e) => upd({ every: Math.max(1, Number(e.target.value) || 1) })} className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-sm" />
+          <select value={freq.unit} onChange={(e) => upd({ unit: e.target.value })} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-sm">
+            <option value="day">jour(s)</option>
+            <option value="week">semaine(s)</option>
+            <option value="month">mois</option>
+          </select>
+        </div>
+
+        {freq.unit === "week" && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {DAY_NAMES.map((d, i) => {
+              const on = (freq.weekdays || []).includes(i);
+              return (
+                <button key={d} onClick={() => upd({ weekdays: on ? freq.weekdays.filter((x) => x !== i) : [...(freq.weekdays || []), i] })} className={chip(on)}>{DAY_SHORT[i]}</button>
+              );
+            })}
+          </div>
+        )}
+
+        {freq.unit === "month" && (
+          <div className="mb-3">
+            <div className="grid grid-cols-2 gap-1.5 mb-2">
+              <button onClick={() => upd({ mode: "date" })} className={"py-1.5 rounded-lg text-xs font-bold border " + (freq.mode !== "nth" ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>Un jour du mois</button>
+              <button onClick={() => upd({ mode: "nth" })} className={"py-1.5 rounded-lg text-xs font-bold border " + (freq.mode === "nth" ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>Un jour de semaine</button>
+            </div>
+            {freq.mode === "nth" ? (
+              <div className="flex gap-2">
+                <select value={freq.nth} onChange={(e) => upd({ nth: Number(e.target.value) })} className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm">
+                  {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{NTH_LABELS[n]}</option>)}
+                </select>
+                <select value={freq.weekday} onChange={(e) => upd({ weekday: Number(e.target.value) })} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-sm">
+                  {DAY_NAMES.map((d, i) => <option key={d} value={i}>{d}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-600">Le</span>
+                <input type="number" min="1" max="31" disabled={freq.monthDay === "last"} value={freq.monthDay === "last" ? "" : freq.monthDay} onChange={(e) => upd({ monthDay: Math.min(31, Math.max(1, Number(e.target.value) || 1)) })} className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-sm" />
+                <label className="flex items-center gap-1.5 text-xs text-slate-600">
+                  <input type="checkbox" checked={freq.monthDay === "last"} onChange={(e) => upd({ monthDay: e.target.checked ? "last" : 1 })} /> dernier jour
+                </label>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5 mb-3">{describeFreq(freq)}</div>
+
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">À partir du</label>
+        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm mb-3" />
+
+        {kind === "comm" && (
+          <>
+            <label className="text-xs font-semibold text-slate-500 mb-1 block">Canal</label>
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {COMM_TYPES.map((t) => (
+                <button key={t.key} onClick={() => setChannelKey(t.key)} className={chip(channelKey === t.key)}>{t.label}</button>
+              ))}
+            </div>
+            {channelKey === "autre" && (
+              <input value={channelLabel} onChange={(e) => setChannelLabel(e.target.value)} placeholder="Précisez le canal" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3" />
+            )}
+          </>
+        )}
+
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Assigné à</label>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          <button onClick={() => setAssignee("Tout le monde")} className={chip(assignee === "Tout le monde")}>Tout le monde</button>
+          {allNames.map((n) => (
+            <button key={n} onClick={() => setAssignee(n)} className={chip(assignee === n)}>{n}</button>
+          ))}
+        </div>
+
+        {kind === "todo" && (
+          <>
+            <label className="text-xs font-semibold text-slate-500 mb-1 block">Priorité</label>
+            <div className="grid grid-cols-3 gap-1.5 mb-3">
+              {PRIORITIES.map((pr) => (
+                <button key={pr.key} onClick={() => setPriority(pr.key)} className={"py-2 rounded-lg text-xs font-bold border " + (priority === pr.key ? pr.bg + " " + pr.text + " border-transparent" : "border-slate-200 text-slate-400")}>
+                  {pr.label}
+                </button>
+              ))}
+            </div>
+            {isManager && (
+              <label className="flex items-center gap-2 text-xs text-slate-600 mb-3">
+                <input type="checkbox" checked={list === "managers"} onChange={(e) => setList(e.target.checked ? "managers" : "team")} /> Action réservée aux managers
+              </label>
+            )}
+          </>
+        )}
+
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Commentaire</label>
+        <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3" />
+
+        {error && <div className="text-rose-600 text-xs mb-3">{error}</div>}
+
+        <div className="flex gap-2">
+          {editor.mode === "edit" && (
+            <button onClick={onDelete} className="px-3 py-2 rounded-lg border border-rose-200 text-rose-600 flex items-center gap-1 text-sm font-semibold">
+              <Trash2 size={16} /> Supprimer
+            </button>
+          )}
+          <button onClick={submit} className="flex-1 py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TodoTab({ recTodo, saveRecTodo, profile, isManager, actions, saveActions, managerActions, saveManagerActions, projects, saveProjects, employees, oswald }) {
+  const [personFilter, setPersonFilter] = useState("all");
+  const [recOpen, setRecOpen] = useState(false);
+  const allNames = [...employees.map((e) => e.name), ...MANAGERS];
 
   const todayISO = isoDate(new Date());
   const pendingAll = [...(isManager ? managerActions : []), ...actions].filter((a) => !a.done);
@@ -2713,6 +3551,12 @@ function TodoTab({ profile, isManager, actions, saveActions, managerActions, sav
 
   return (
     <div>
+      <div className="flex justify-end mb-2">
+        <button onClick={() => setRecOpen(true)} className="text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5 flex items-center gap-1 bg-white">
+          <Repeat size={14} /> Programmation{recTodo.length > 0 ? " (" + recTodo.length + ")" : ""}
+        </button>
+      </div>
+
       <PersonCounters items={counterItems} selected={personFilter} onSelect={setPersonFilter} total={pendingAll.length} totalLate={pendingAll.some((a) => a.date && a.date < todayISO)} employees={employees} />
 
       {isManager && (
@@ -2730,6 +3574,7 @@ function TodoTab({ profile, isManager, actions, saveActions, managerActions, sav
 
       <ActionsSection profile={profile} actions={actions} saveActions={saveActions} allNames={allNames} personFilter={personFilter} oswald={oswald} employees={employees} />
       <ProjectsSection profile={profile} projects={projects} saveProjects={saveProjects} allNames={allNames} personFilter={personFilter} oswald={oswald} />
+      {recOpen && <RecurringModal kind="todo" recs={recTodo} saveRecs={saveRecTodo} allNames={allNames} employees={employees} isManager={isManager} oswald={oswald} onClose={() => setRecOpen(false)} />}
     </div>
   );
 }
@@ -3103,8 +3948,9 @@ function ProjectModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
 
 /* ---------------- STOCK ---------------- */
 
-function StockTab({ products, saveProducts, checked, saveChecked, qty, saveQty, oswald }) {
+function StockTab({ products, saveProducts, checked, saveChecked, qty, saveQty, others, saveOthers, oswald }) {
   const [manageOpen, setManageOpen] = useState(false);
+  const [otherName, setOtherName] = useState("");
   const [modal, setModal] = useState(null);
 
   async function toggleChecked(id) {
@@ -3125,6 +3971,13 @@ function StockTab({ products, saveProducts, checked, saveChecked, qty, saveQty, 
     const isChecked = checked.includes(id);
     if (next > 0 && !isChecked) await saveChecked([...checked, id]);
     else if (next === 0 && isChecked) await saveChecked(checked.filter((x) => x !== id));
+  }
+
+  async function addOther() {
+    const t = otherName.trim();
+    if (!t) return;
+    await saveOthers([...others, { id: "oth-" + Date.now(), name: t, ts: Date.now() }]);
+    setOtherName("");
   }
 
   async function saveProduct(data) {
@@ -3227,6 +4080,29 @@ function StockTab({ products, saveProducts, checked, saveChecked, qty, saveQty, 
       ))}
 
       {products.length === 0 && <div className="text-center text-slate-400 py-10">Aucun produit pour l'instant.</div>}
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-3 overflow-hidden">
+        <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 font-bold text-slate-700 text-sm">Autres</div>
+        <div className="divide-y divide-slate-100">
+          {others.map((o) => (
+            <div key={o.id} className="flex items-center gap-2 px-3 py-2">
+              <div className="flex-1 text-sm text-rose-600 font-semibold">{o.name}</div>
+              <button onClick={() => saveOthers(others.filter((x) => x.id !== o.id))} title="Supprimer (réglé)" className="text-slate-400 hover:text-rose-600 shrink-0"><Trash2 size={16} /></button>
+            </div>
+          ))}
+          {others.length === 0 && <div className="px-3 py-3 text-xs text-slate-400">Rien d'autre à commander.</div>}
+        </div>
+        <div className="flex gap-2 p-2 border-t border-slate-100">
+          <input
+            value={otherName}
+            onChange={(e) => setOtherName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") addOther(); }}
+            placeholder="Autre besoin (ex: ampoule terrain 3)"
+            className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm"
+          />
+          <button onClick={addOther} title="Ajouter" className="w-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center"><Plus size={18} /></button>
+        </div>
+      </div>
 
       {modal && <StockProductModal modal={modal} groups={groups.map((g) => g.name)} onClose={() => setModal(null)} onSave={saveProduct} onDelete={deleteProduct} oswald={oswald} />}
     </div>
@@ -3526,14 +4402,24 @@ function CPTab({ markers, employees, oswald }) {
   const cpEntries = markers.filter((m) => m.type === "cp").sort((a, b) => a.date.localeCompare(b.date));
   const totals = {};
   cpEntries.forEach((m) => {
-    totals[m.employee] = (totals[m.employee] || 0) + 1;
+    totals[m.employee] = (totals[m.employee] || 0) + (m.hours ?? 7);
   });
+  const fmtDays = (h) => {
+    const d = Math.round((h / 7) * 10) / 10;
+    return String(d).replace(".", ",") + " j";
+  };
+  const byMonth = {};
+  cpEntries.forEach((m) => {
+    const k = m.date.slice(0, 7);
+    (byMonth[k] = byMonth[k] || []).push(m);
+  });
+  const months = Object.keys(byMonth).sort().reverse();
 
   return (
     <div>
       <div className="font-bold text-emerald-900 mb-1" style={oswald}>Congés payés</div>
       <p className="text-xs text-slate-400 mb-3">
-        Pour poser ou retirer un CP, utilisez le bouton "CP" à côté du nom de l'employé dans le planning.
+        Pour poser un CP : onglet Planning → « Modifier » → cliquez sur la ligne de l'employé → « Congé payé ». Par défaut la journée entière (7h), ajustable.
       </p>
 
       {Object.keys(totals).length > 0 && (
@@ -3543,7 +4429,7 @@ function CPTab({ markers, employees, oswald }) {
               <div key={e.id} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50">
                 <span className={"w-2.5 h-2.5 rounded-full " + empColor(e.name, employees).bg} />
                 <span className="text-sm font-semibold text-slate-700">{e.name}</span>
-                <span className="text-sm font-bold text-slate-900" style={oswald}>{totals[e.name]} j</span>
+                <span className="text-sm font-bold text-slate-900" style={oswald}>{fmtDays(totals[e.name])}</span>
               </div>
             ) : null
           )}
@@ -3553,16 +4439,29 @@ function CPTab({ markers, employees, oswald }) {
       {cpEntries.length === 0 ? (
         <div className="text-center text-slate-400 py-10">Aucun CP posé pour l'instant.</div>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
-          {cpEntries.map((m) => (
-            <div key={m.id} className="flex items-center justify-between px-3 py-2.5">
-              <span className="text-sm font-semibold text-slate-700">{m.employee}</span>
-              <span className="text-sm text-slate-500 capitalize">
-                {new Date(m.date + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
-              </span>
+        months.map((k) => {
+          const label = new Date(k + "-01T00:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+          const sum = byMonth[k].reduce((t, m) => t + (m.hours ?? 7), 0);
+          return (
+            <div key={k} className="mb-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">{label}</div>
+                <div className="text-xs font-semibold text-slate-400">{fmtDays(sum)}</div>
+              </div>
+              <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+                {byMonth[k].map((m) => (
+                  <div key={m.id} className="flex items-center justify-between px-3 py-2.5 gap-2">
+                    <span className="text-sm font-semibold text-slate-700">{m.employee}</span>
+                    <span className="text-sm text-slate-500 capitalize">
+                      {new Date(m.date + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+                      {(m.hours ?? 7) < 7 && <span className="ml-2 text-xs font-bold text-slate-600 normal-case">({fmtHoursLabel(m.hours)})</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+          );
+        })
       )}
     </div>
   );
@@ -3570,7 +4469,7 @@ function CPTab({ markers, employees, oswald }) {
 
 /* ---------------- RÉGLAGES ---------------- */
 
-function SettingsTab({ employees, saveEmployees, eventGroups, saveEventGroups, saveActions, saveEventEntries, commDisabledTypes, saveCommDisabledTypes, oswald }) {
+function SettingsTab({ eventEntries, employees, saveEmployees, eventGroups, saveEventGroups, saveActions, saveEventEntries, commDisabledTypes, saveCommDisabledTypes, oswald }) {
   const [name, setName] = useState("");
   const [confirmId, setConfirmId] = useState(null);
   const [error, setError] = useState("");
@@ -3583,7 +4482,7 @@ function SettingsTab({ employees, saveEmployees, eventGroups, saveEventGroups, s
       return;
     }
     const colorIdx = employees.length % EMP_PALETTE.length;
-    const next = [...employees, { id: "emp-" + Date.now(), name: trimmed, colorIdx }];
+    const next = [...employees, { id: "emp-" + Date.now(), name: trimmed, colorIdx, weeklyHours: 35 }];
     await saveEmployees(next);
     setName("");
     setError("");
@@ -3611,6 +4510,7 @@ function SettingsTab({ employees, saveEmployees, eventGroups, saveEventGroups, s
                 <span className="text-sm font-semibold text-slate-700 truncate">{emp.name}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                <WeeklyHoursInput value={emp.weeklyHours ?? 35} onCommit={(v) => saveEmployees(employees.map((e) => (e.id === emp.id ? { ...e, weeklyHours: v } : e)))} />
                 <button
                   onClick={() => toggleComm(emp.id)}
                   className={"text-xs font-semibold rounded-lg px-2 py-1 border " + (emp.doesComm ? "bg-violet-600 text-white border-violet-600" : "border-slate-200 text-slate-400")}
@@ -3657,6 +4557,8 @@ function SettingsTab({ employees, saveEmployees, eventGroups, saveEventGroups, s
 
       <ImportPlanningSection employees={employees} oswald={oswald} />
 
+      <ImportEventsSection eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} oswald={oswald} />
+
       <DangerZone saveActions={saveActions} saveEventEntries={saveEventEntries} oswald={oswald} />
     </div>
   );
@@ -3677,6 +4579,141 @@ function parseTime(str) {
   const m = parts[1] ? parseInt(parts[1], 10) : 0;
   if (isNaN(h)) return null;
   return h * 60 + (isNaN(m) ? 0 : m);
+}
+
+function WeeklyHoursInput({ value, onCommit }) {
+  const [v, setV] = useState(String(value));
+  useEffect(() => { setV(String(value)); }, [value]);
+  function commit() {
+    const n = Math.max(0, Math.min(80, Number(String(v).replace(",", ".")) || 0));
+    setV(String(n));
+    if (n !== value) onCommit(n);
+  }
+  return (
+    <label className="flex items-center gap-1 text-xs text-slate-400" title="Heures par semaine">
+      <input
+        type="number"
+        min="0"
+        step="0.5"
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+        className="w-14 border border-slate-200 rounded-lg px-1.5 py-1 text-sm text-slate-700 text-right"
+      />
+      h/sem
+    </label>
+  );
+}
+
+function parseDateCell(str) {
+  if (!str) return null;
+  const t = String(str).trim();
+  let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return m[1] + "-" + m[2] + "-" + m[3];
+  m = t.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+  if (m) {
+    const y = m[3].length === 2 ? "20" + m[3] : m[3];
+    return y + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0");
+  }
+  return null;
+}
+
+function ImportEventsSection({ eventEntries, saveEventEntries, eventGroups, oswald }) {
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState(null);
+  const fileRef = useRef(null);
+
+  function downloadExample() {
+    const rows = [
+      ["Date", "Type", "Libellé", "Heure", "Commentaire"],
+      ["2026-11-14", "Tournoi FFT", "P250", "", "Messieurs"],
+      ["2026-11-21", "Tournoi loisirs", "Americano", "", ""],
+      ["2026-11-08", "Anniversaire", "Léo Martin", "15h", ""],
+      ["2026-11-12", "Réservation", "Entreprise Dupont", "19h", "bar et sport"],
+      ["2026-11-25", eventGroups[0] ? eventGroups[0].name : "Event", "Soirée de Noël", "", ""],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Evenements");
+    XLSX.writeFile(wb, "exemple-import-evenements.xlsx");
+  }
+
+  async function handleFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setBusy(true);
+    setStatus(null);
+    const rows = rowsFromWorkbook(await file.arrayBuffer());
+    const norm = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const header = (rows[0] || []).map(norm);
+    const col = (pre) => header.findIndex((h) => h.startsWith(pre));
+    const idx = { date: col("date"), type: col("type"), label: col("lib"), time: col("heure"), comment: col("comm") };
+    const warnings = [];
+    const added = [];
+    const existingKeys = new Set(eventEntries.map((x) => x.date + "|" + summarizeEntry(x)));
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r || r.every((c) => !c)) continue;
+      const date = parseDateCell(r[idx.date]);
+      if (!date) { warnings.push("Ligne " + (i + 1) + " : date invalide (\"" + (r[idx.date] || "") + "\")"); continue; }
+      const type = norm(r[idx.type]);
+      const label = idx.label >= 0 ? r[idx.label] || "" : "";
+      const time = idx.time >= 0 ? r[idx.time] || "" : "";
+      const comment = idx.comment >= 0 ? r[idx.comment] || "" : "";
+      let entry;
+      if (type.startsWith("anniv")) {
+        const parts = label.split(/\s+/).filter(Boolean);
+        entry = { kind: "anniversaire", firstName: parts[0] || "", lastName: parts.slice(1).join(" "), slot: time };
+      } else if (type.startsWith("reserv")) {
+        const c = norm(comment);
+        entry = { kind: "reservation", forWhom: label, isBar: c.includes("bar"), isSport: c.includes("sport"), time };
+      } else if (type.includes("fft")) {
+        entry = { kind: "tournoi", subtype: "fft", level: label, comment };
+      } else if (type.startsWith("tournoi")) {
+        entry = { kind: "tournoi", subtype: "loisirs", loisirsType: label || "Autres", comment };
+      } else if (r[idx.type]) {
+        const g = eventGroups.find((x) => norm(x.name) === type);
+        entry = { kind: "simple", category: g ? g.name : r[idx.type], comment: [label, comment].filter(Boolean).join(" — ") };
+      } else {
+        warnings.push("Ligne " + (i + 1) + " : type manquant");
+        continue;
+      }
+      entry = { id: "evt-imp-" + Date.now() + "-" + i, date, createdBy: "Import", createdTs: Date.now(), ...entry };
+      const key = entry.date + "|" + summarizeEntry(entry);
+      if (existingKeys.has(key)) { warnings.push("Ligne " + (i + 1) + " : déjà présent, ignoré"); continue; }
+      existingKeys.add(key);
+      added.push(entry);
+    }
+    if (added.length) await saveEventEntries([...eventEntries, ...added]);
+    setBusy(false);
+    setStatus({ count: added.length, warnings });
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  return (
+    <div className="mt-6 pt-4 border-t border-slate-200">
+      <div className="font-bold text-emerald-900 mb-1" style={oswald}>Importer des évènements</div>
+      <p className="text-xs text-slate-400 mb-3">
+        Fichier Excel (.xlsx), première feuille, colonnes : Date (AAAA-MM-JJ ou JJ/MM/AAAA), Type (Anniversaire, Réservation, Tournoi FFT, Tournoi loisirs, ou un groupe d'évènements), Libellé, Heure (optionnel), Commentaire (optionnel). Les évènements s'ajoutent à ceux déjà présents.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} disabled={busy} className="text-sm" />
+        <button onClick={downloadExample} className="text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5">Télécharger un exemple</button>
+      </div>
+      {busy && <div className="text-xs text-slate-400 mt-2">Import en cours…</div>}
+      {status && (
+        <div className="mt-3 text-sm">
+          <div className="text-emerald-700 font-semibold">{status.count} évènement{status.count > 1 ? "s" : ""} importé{status.count > 1 ? "s" : ""}.</div>
+          {status.warnings.length > 0 && (
+            <div className="mt-2 bg-amber-50 border border-amber-100 rounded-lg p-2 text-xs text-amber-700 space-y-0.5">
+              {status.warnings.map((w, i) => <div key={i}>{w}</div>)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CommSettingsSection({ eventGroups, commDisabledTypes, saveCommDisabledTypes, oswald }) {
