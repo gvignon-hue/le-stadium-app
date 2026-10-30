@@ -896,9 +896,8 @@ export default function App() {
         <div className={"mx-auto flex items-center justify-between" + (wide ? " wide-main" : "")} style={wide ? undefined : { maxWidth: "64rem" }}>
           <div className="relative flex-1 min-w-0 mr-3">
             <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap py-0.5" style={{ scrollbarWidth: "none" }}>
-              <ProfileChip label="Employé" active={!!profile.generic} onClick={selectGeneric} />
               {employees.map((e) => (
-                <ProfileChip key={e.id} label={e.name} active={!profile.generic && profile.role === "employe" && profile.name === e.name} onClick={() => selectProfile(e.name, "employe")} />
+                <ProfileChip key={e.id} label={e.name} active={!profile.generic && profile.role === "employe" && profile.name === e.name} onClick={() => (!profile.generic && profile.role === "employe" && profile.name === e.name ? selectGeneric() : selectProfile(e.name, "employe"))} />
               ))}
               <span className="w-px h-5 bg-emerald-600 mx-1 shrink-0" />
               {MANAGERS.map((n) => (
