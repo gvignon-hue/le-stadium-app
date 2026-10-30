@@ -1976,7 +1976,7 @@ function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, curr
                 return (
                   <div key={emp} className="flex items-center mb-1">
                     <div className={"w-24 shrink-0 text-xs font-semibold pr-2 flex items-center gap-1 " + (isMe ? "text-amber-600" : empObj.extra ? "text-pink-600" : "text-slate-600")}>
-                      <span className="truncate">{emp}</span>
+                      <span className="truncate flex-1 min-w-0">{emp}</span>
                       {isManager && !empObj.extra && (
                         <button
                           onClick={(e) => { e.stopPropagation(); onQuickMarker(emp, "cours"); }}
