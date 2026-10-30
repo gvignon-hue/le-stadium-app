@@ -752,7 +752,9 @@ function model(){
   // Poules
   const F=fmt();
   const pms=(D.pm||[]).map((x,i)=>{const m={id:x.id,pool:x.pool,round:x.round,a:x.a,b:x.b,sa:{p:x.a},sb:{p:x.b},isPool:true,lo:0,idx:-1000+i};
-    let w=D.winners[m.id];if(w!==m.a&&w!==m.b){if(w)delete D.winners[m.id];w=''}m.winner=w;m.loser=w?(w===m.a?m.b:m.a):'';M[m.id]=m;return m});
+    let w=D.winners[m.id];if(w!==m.a&&w!==m.b){if(w)delete D.winners[m.id];w=''}
+    if(S.out[m.a]||S.out[m.b]){m.forfeit=true;w=S.out[m.a]&&!S.out[m.b]?m.b:m.a}
+    m.winner=w;m.loser=w?(w===m.a?m.b:m.a):'';M[m.id]=m;return m});
   const stand=(D.pools||[]).map((ids,i)=>{
     const ms=pms.filter(m=>m.pool===i),st={};
     ids.forEach(id=>st[id]={id,v:0,d:0,sw:0,sl:0,gw:0,gl:0});
@@ -775,6 +777,7 @@ function model(){
   list.forEach(m=>{
     m.a=res(m.sa);m.b=res(m.sb);
     if(m.bye){m.winner=m.byeA&&m.byeB?null:(m.byeA?m.b:m.a);m.loser=null;return}
+    if(m.a&&m.b&&(S.out[m.a]||S.out[m.b])){m.forfeit=true;m.winner=S.out[m.a]&&!S.out[m.b]?m.b:m.a;m.loser=m.winner===m.a?m.b:m.a;return}
     let w=D.winners[m.id];
     if(!(m.a&&m.b&&(w===m.a||w===m.b))){if(w)delete D.winners[m.id];w=''}
     m.winner=w;m.loser=w?(w===m.a?m.b:m.a):'';
@@ -806,7 +809,7 @@ function model(){
 
   // Planning : chaque match démarre dès qu'un terrain est libre et que ses paires ont eu leur repos
   const C=Math.max(1,Number(S.settings.courts)||1),dur=Number(S.settings.dur)||45,rest=Number(S.settings.rest)||0,start=toMin(S.settings.start);
-  const real=[...pms,...list.filter(m=>!m.bye)];
+  const real=[...pms,...list.filter(m=>!m.bye)].filter(m=>!m.forfeit);
   const poolEnd=i=>Math.max(start,...pms.filter(m=>m.pool===i&&m.time!=null).map(m=>m.time+dur));
   const ready=src=>{
     if(src===null)return -Infinity;if(src.p)return start;if(src.q)return poolEnd(src.q[0])+rest;
@@ -987,7 +990,7 @@ function vPaires(){
   return`
   <section class="card">
     <h2>Paires classées par poids</h2>
-    <p class="help">Le poids d'une paire est la somme des classements des deux joueurs : plus il est faible, plus la paire est forte. Décochez une paire forfait avant de faire le tirage.</p>
+    <p class="help">Le poids d'une paire est la somme des classements des deux joueurs : plus il est faible, plus la paire est forte. Décochez une paire forfait : avant le tirage elle est retirée ; après le tirage le tableau n'est pas refait, la paire est comptée forfait (match perdu, adversaire qualifié), retirée du planning et des convocations.</p>
     <div class="row" style="margin-bottom:14px">
       ${S.events.length>1?`<label class="f">Épreuve<select data-act="event">${S.events.map(e=>`<option ${e===S.event?'selected':''}>${esc(e)}</option>`).join('')}</select></label>`:''}
       <label class="f">Formule<select data-set="mode">
@@ -1054,6 +1057,11 @@ function matchBox(Mo,m,showBye){
     return`<div class="match bye ${showBye?'':'ghostm'}"><div class="mmain"><div class="meta"><span class="mnum">Exempt</span><span></span></div>
       <div class="siderow"><div class="side win" ${id?`data-pid="${id}"`:''} style="cursor:default"><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></div></div>
       <div class="siderow"><div class="side"><span class="nm tbd">Exempt</span></div></div>
+    </div></div>`;
+  }
+  if(m.forfeit){
+    return`<div class="match done"><div class="mmain"><div class="meta"><span class="mnum">Forfait</span><span class="muted" style="font-size:12px">match perdu</span></div>
+      ${['a','b'].map(sd=>{const id=m[sd],out=S.out[id];return`<div class="siderow"><div class="side ${m.winner===id?'win':''}" ${id?`data-pid="${id}"`:''} style="cursor:default${out?';text-decoration:line-through;opacity:.6':''}"><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,sd)}${out?' (forfait)':''}</span></div></div>`}).join('')}
     </div></div>`;
   }
   const can=m.a&&m.b,C=Number(S.settings.courts)||1,F=fmt();
