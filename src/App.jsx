@@ -4860,6 +4860,20 @@ function ImportPlanningSection({ employees, oswald }) {
   const [status, setStatus] = useState(null);
   const fileRef = useRef(null);
 
+  function downloadExample() {
+    const mon = mondayOf(new Date());
+    const names = employees.length ? employees.map((e) => e.name) : ["Prénom"];
+    const rows = [["Date", "Employé", "Début", "Fin", "Commentaire"]];
+    names.slice(0, 3).forEach((n, i) => {
+      rows.push([isoDate(addDays(mon, i)), n, "09:00", "17:00", i === 0 ? "Ouverture" : ""]);
+      rows.push([isoDate(addDays(mon, i + 1)), n, "14:00", "22:00", ""]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Planning");
+    XLSX.writeFile(wb, "exemple-import-planning.xlsx");
+  }
+
   async function handleFile(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -4943,7 +4957,10 @@ function ImportPlanningSection({ employees, oswald }) {
       <p className="text-xs text-slate-400 mb-3">
         Fichier Excel (.xlsx) avec les colonnes : Date (AAAA-MM-JJ), Employé, Début (HH:MM), Fin (HH:MM), Commentaire (optionnel), sur la première feuille. Les créneaux importés s'ajoutent à ceux déjà présents, sans rien effacer.
       </p>
-      <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} disabled={busy} className="text-sm" />
+      <div className="flex flex-wrap items-center gap-3">
+        <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} disabled={busy} className="text-sm" />
+        <button onClick={downloadExample} className="text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5">Télécharger un exemple</button>
+      </div>
       {busy && <div className="text-xs text-slate-400 mt-2">Import en cours…</div>}
       {status && (
         <div className="mt-3 text-sm">
