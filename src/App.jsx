@@ -2364,27 +2364,6 @@ function EvenementTab({ employees, profile, actions, saveActions, eventEntries, 
     setModal(null);
   }
 
-  const [planBy, setPlanBy] = useState({});
-  const gridStartKey = isoDate(evView === "week" ? evWeek : mondayOf(startOfMonth(monthStart)));
-  const gridWeeks = evView === "week" ? 1 : Math.ceil((((endOfMonth(monthStart) - mondayOf(startOfMonth(monthStart))) / 86400000) + 1) / 7);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const out = {};
-      for (let w = 0; w < gridWeeks; w++) {
-        const mk = isoDate(addDays(parseISODate(gridStartKey), 7 * w));
-        const sl = (await storageGet("planning:" + mk, [])) || [];
-        sl.forEach((x) => {
-          const iso = isoDate(addDays(parseISODate(mk), x.day));
-          (out[iso] = out[iso] || []).push(x);
-        });
-      }
-      Object.values(out).forEach((l) => l.sort((a, b) => a.start - b.start));
-      if (!cancelled) setPlanBy(out);
-    })();
-    return () => { cancelled = true; };
-  }, [gridStartKey, gridWeeks]);
-
   const gridStart = mondayOf(startOfMonth(monthStart));
   const gridEndAnchor = endOfMonth(monthStart);
   const lastRowStart = mondayOf(gridEndAnchor);
@@ -2519,19 +2498,6 @@ function EvenementTab({ employees, profile, actions, saveActions, eventEntries, 
                 ))}
                 {entries.length > (evView === "week" ? 12 : 4) && <span className={"text-xs " + (isSelected ? "text-white" : "text-slate-400")}>+{entries.length - 4} autres</span>}
               </div>
-              {(planBy[dISO] || []).length > 0 && (
-                <div className="cal-chips cal-plan gap-0.5 mt-1 w-full" style={{ borderTop: "1px dashed #cbd5e1", paddingTop: "3px" }}>
-                  {(planBy[dISO] || []).slice(0, evView === "week" ? 14 : 5).map((x) => {
-                    const c = (employees.some((em) => em.name === x.employee) ? empColor(x.employee, employees) : EXTRA_COLORS);
-                    return (
-                      <span key={x.id} className={"rounded px-1 truncate w-full block text-white " + c.bg} style={{ fontSize: "10px", lineHeight: "14px" }} title={x.employee + " " + fmtTime(x.start) + "–" + fmtTime(x.end)}>
-                        {(evView === "week" ? x.employee : x.employee.slice(0, 3)) + " " + fmtTime(x.start) + "–" + fmtTime(x.end)}
-                      </span>
-                    );
-                  })}
-                  {(planBy[dISO] || []).length > (evView === "week" ? 14 : 5) && <span className={"text-xs " + (isSelected ? "text-white" : "text-slate-400")}>+{(planBy[dISO] || []).length - (evView === "week" ? 14 : 5)}</span>}
-                </div>
-              )}
               <div className="cal-dots flex-wrap gap-0.5 mt-auto">
                 {entries.slice(0, 4).map((e) => (
                   <span key={e.id} className={"w-1.5 h-1.5 rounded-full " + dotColor(e.kind)} />
