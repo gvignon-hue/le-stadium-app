@@ -1237,6 +1237,15 @@ function vConvoc(){
     <p class="help">Envoyé individuellement, pour les équipes qui n'ont pas confirmé leur venue. Mêmes variables que le message de convocation.</p>
     <textarea data-set="tplRelance">${esc(s.tplRelance)}</textarea>
     ${exM?`<div class="preview" style="margin-top:12px"><div class="muted" style="font-size:13px;margin-bottom:4px">Exemple</div>${esc(message(Mo,ex,0,exM,'relance'))}</div>`:''}
+  </section>
+  <section class="card noprint">
+    <h2>Revenir aux messages par défaut</h2>
+    <p class="help">Remet le texte d'origine du message choisi. Vos modifications de ce message seront perdues.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <button class="btn" data-reset-tpl="tplSms">Convocation SMS</button>
+      <button class="btn" data-reset-tpl="tplSmsGroup">SMS groupé</button>
+      <button class="btn" data-reset-tpl="tplRelance">Relance</button>
+    </div>
   </section>`;
 }
 function message(Mo,p,k,m,ch){
@@ -1325,6 +1334,7 @@ function bind(){
   });
   q('[data-started]',el=>el.onchange=()=>{if(el.checked)S.draw.started[el.dataset.started]=1;else delete S.draw.started[el.dataset.started];save();render()});
   q('[data-sent]',el=>el.addEventListener('click',()=>{S.sent[el.dataset.sent]=1;save();setTimeout(render,300)}));
+  q('[data-reset-tpl]',el=>el.onclick=()=>{const k=el.dataset.resetTpl,def={tplSms:TPL_SMS,tplSmsGroup:TPL_SMS_GROUP,tplRelance:TPL_RELANCE}[k];if(!confirm('Revenir au message par défaut ? Votre texte actuel sera remplacé.'))return;S.settings[k]=def;save();render()});
   const d=document.getElementById('draw');if(d)d.onclick=()=>{if(S.draw&&!UI.redraw){UI.redraw=1;render();return}UI.redraw=0;if(makeDraw()){S.tab='tableau';UI.ok='Nouveau tirage effectué.';window.scrollTo(0,0)}save();render()};
   const dc=document.getElementById('drawCancel');if(dc)dc.onclick=()=>{UI.redraw=0;render()};
   const rt=document.getElementById('resetTimes');if(rt)rt.onclick=()=>{S.draw.times={};S.draw.courts={};save();render()};
