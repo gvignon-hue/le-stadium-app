@@ -1840,6 +1840,7 @@ function PlanningTab({ profile, isManager: isManagerRole, oswald, employees, mar
             markerObj={(employee) => markerObj(isoDate(date), employee)}
             onOpenMarker={(employee, type) => { const m = markerObj(isoDate(date), employee); setMarkerModal({ date: isoDate(date), employee, type: (m && m.type) || type || "cp", hours: m ? (m.hours ?? 7) : 7, exists: !!m }); }}
             onMoveSlot={handleMoveSlot}
+            onQuickMarker={(employee, type) => { const m = markerObj(isoDate(date), employee); const same = m && m.type === type; saveMarker(isoDate(date), employee, same ? null : type, same ? 0 : (m ? (m.hours ?? 7) : 7)); }}
             onAddRange={openRangeModal}
             dueCount={dueCount}
             dayEvents={eventEntries.filter((e) => e.date === isoDate(date))}
@@ -1862,7 +1863,7 @@ function PlanningTab({ profile, isManager: isManagerRole, oswald, employees, mar
   );
 }
 
-function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, currentEmployeeName, oswald, eventText, onEventChange, employees, markerObj, onOpenMarker, onMoveSlot, onAddRange, dueCount, dayEvents, onAddExtra }) {
+function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, currentEmployeeName, oswald, eventText, onEventChange, employees, markerObj, onOpenMarker, onMoveSlot, onAddRange, onQuickMarker, dueCount, dayEvents, onAddExtra }) {
   const today = sameDay(date, new Date());
   const [editingEvent, setEditingEvent] = useState(false);
   const [draft, setDraft] = useState(eventText);
@@ -1976,6 +1977,15 @@ function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, curr
                   <div key={emp} className="flex items-center mb-1">
                     <div className={"w-24 shrink-0 text-xs font-semibold pr-2 flex items-center gap-1 " + (isMe ? "text-amber-600" : empObj.extra ? "text-pink-600" : "text-slate-600")}>
                       <span className="truncate">{emp}</span>
+                      {isManager && !empObj.extra && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onQuickMarker(emp, "cours"); }}
+                          title="Cours (journée)"
+                          className={"shrink-0 w-5 h-5 rounded text-xs font-bold leading-none " + (marker === "cours" ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-400")}
+                        >
+                          C
+                        </button>
+                      )}
                       {today && !empObj.extra && dueCount && dueCount(emp) > 0 && (
                         <span title="Actions à faire aujourd'hui ou en retard" className="shrink-0 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white flex items-center justify-center" style={{ fontSize: "10px", lineHeight: 1 }}>{dueCount(emp)}</span>
                       )}
@@ -1986,7 +1996,7 @@ function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, curr
                       ))}
                       {marker === "cp" && (
                         <div className={"absolute inset-0 rounded-md flex items-center justify-center pointer-events-none " + (mh >= 7 ? "bg-slate-300" : "")} style={mh < 7 ? { background: "repeating-linear-gradient(45deg, rgba(100,116,139,0.18), rgba(100,116,139,0.18) 6px, transparent 6px, transparent 12px)" } : undefined}>
-                          <span data-badge="1" onClick={(e) => { e.stopPropagation(); if (isManager) onOpenMarker(emp); }} className={"bg-slate-200 text-slate-600 text-xs font-bold px-1 rounded " + (isManager ? "pointer-events-auto cursor-pointer" : "")}>CP {fmtHoursLabel(mh)}</span>
+                          <span data-badge="1" onClick={(e) => { e.stopPropagation(); if (isManager) onOpenMarker(emp); }} className={"bg-slate-200 text-slate-600 text-xs font-bold px-1 rounded " + (isManager ? "pointer-events-auto cursor-pointer" : "")}>CP{mh < 7 ? " " + fmtHoursLabel(mh) : ""}</span>
                         </div>
                       )}
                       {marker === "cours" && (
@@ -1994,7 +2004,7 @@ function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, curr
                           className="absolute inset-0 rounded-md flex items-center px-1.5 pointer-events-none"
                           style={{ background: "repeating-linear-gradient(45deg, rgba(2,132,199,0.12), rgba(2,132,199,0.12) 6px, transparent 6px, transparent 12px)" }}
                         >
-                          <span data-badge="1" onClick={(e) => { e.stopPropagation(); if (isManager) onOpenMarker(emp); }} className={"bg-sky-100 text-sky-700 text-xs font-bold px-1 rounded " + (isManager ? "pointer-events-auto cursor-pointer" : "")}>Cours {fmtHoursLabel(mh)}</span>
+                          <span data-badge="1" onClick={(e) => { e.stopPropagation(); if (isManager) onOpenMarker(emp); }} className={"bg-sky-100 text-sky-700 text-xs font-bold px-1 rounded " + (isManager ? "pointer-events-auto cursor-pointer" : "")}>Cours{mh < 7 ? " " + fmtHoursLabel(mh) : ""}</span>
                         </div>
                       )}
                       {drag && drag.id === "new" && drag.emp === emp && (
@@ -3396,7 +3406,7 @@ function RecurringModal({ kind, recs, saveRecs, allNames, employees, isManager, 
 
 function RecurringEditor({ kind, editor, allNames, isManager, oswald, onClose, onSave, onDelete }) {
   const [text, setText] = useState(editor.text || "");
-  const [assignee, setAssignee] = useState((editor.assignees && editor.assignees[0]) || "Tout le monde");
+  const [assignees, setAssignees] = useState(editor.assignees && editor.assignees.length ? (kind === "todo" ? editor.assignees : [editor.assignees[0]]) : ["Tout le monde"]);
   const [priority, setPriority] = useState(editor.priority || "moyenne");
   const [comment, setComment] = useState(editor.comment || "");
   const [freq, setFreq] = useState({ unit: "week", every: 1, weekdays: [0], mode: "date", monthDay: 1, nth: 1, weekday: 0, ...(editor.freq || {}) });
@@ -3406,12 +3416,20 @@ function RecurringEditor({ kind, editor, allNames, isManager, oswald, onClose, o
   const [channelLabel, setChannelLabel] = useState(editor.channelLabel || "");
   const [error, setError] = useState("");
   const upd = (patch) => setFreq((f) => ({ ...f, ...patch }));
+  function toggleName(n) {
+    setAssignees((cur) => {
+      if (kind !== "todo" || n === "Tout le monde") return [n];
+      const base = cur.filter((x) => x !== "Tout le monde");
+      const next = base.includes(n) ? base.filter((x) => x !== n) : [...base, n];
+      return next.length ? next : ["Tout le monde"];
+    });
+  }
   const chip = (on) => "text-xs font-semibold rounded-full px-2.5 py-1 border " + (on ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500");
 
   function submit() {
     if (!text.trim()) { setError(kind === "comm" ? "Décrivez la communication." : "Le texte de la tâche est requis."); return; }
     if (freq.unit === "week" && (!freq.weekdays || freq.weekdays.length === 0)) { setError("Choisissez au moins un jour de la semaine."); return; }
-    onSave({ text: text.trim(), assignees: [assignee], priority, comment, freq, startDate, list, channelKey, channelLabel });
+    onSave({ text: text.trim(), assignees, priority, comment, freq, startDate, list, channelKey, channelLabel });
   }
 
   return (
@@ -3493,11 +3511,11 @@ function RecurringEditor({ kind, editor, allNames, isManager, oswald, onClose, o
           </>
         )}
 
-        <label className="text-xs font-semibold text-slate-500 mb-1 block">Assigné à</label>
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Assigné à{kind === "todo" ? " (plusieurs possibles)" : ""}</label>
         <div className="flex flex-wrap gap-1.5 mb-3">
-          <button onClick={() => setAssignee("Tout le monde")} className={chip(assignee === "Tout le monde")}>Tout le monde</button>
+          <button onClick={() => toggleName("Tout le monde")} className={chip(assignees.includes("Tout le monde"))}>Tout le monde</button>
           {allNames.map((n) => (
-            <button key={n} onClick={() => setAssignee(n)} className={chip(assignee === n)}>{n}</button>
+            <button key={n} onClick={() => toggleName(n)} className={chip(assignees.includes(n))}>{n}</button>
           ))}
         </div>
 
@@ -3699,14 +3717,23 @@ function ActionRow({ action, onToggle, onEdit, oswald, employees }) {
 function ActionModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
   const [text, setText] = useState(modal.text);
   const [date, setDate] = useState(modal.date || isoDate(new Date()));
-  const [assignee, setAssignee] = useState(modal.assignee || (modal.assignees && modal.assignees[0]) || "Tout le monde");
+  const [assignees, setAssignees] = useState(modal.assignees && modal.assignees.length ? modal.assignees : modal.assignee ? [modal.assignee] : ["Tout le monde"]);
   const [priority, setPriority] = useState(modal.priority || "moyenne");
   const [comment, setComment] = useState(modal.comment || "");
   const [error, setError] = useState("");
 
+  function toggleName(n) {
+    setAssignees((cur) => {
+      if (n === "Tout le monde") return ["Tout le monde"];
+      const base = cur.filter((x) => x !== "Tout le monde");
+      const next = base.includes(n) ? base.filter((x) => x !== n) : [...base, n];
+      return next.length ? next : ["Tout le monde"];
+    });
+  }
+
   function submit() {
     if (!text.trim()) { setError("Le texte de l'action est requis."); return; }
-    onSave({ text: text.trim(), date, assignees: [assignee], priority, comment });
+    onSave({ text: text.trim(), date, assignees, priority, comment });
   }
 
   return (
@@ -3723,13 +3750,13 @@ function ActionModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
         <label className="text-xs font-semibold text-slate-500 mb-1 block">Date</label>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm mb-3" />
 
-        <label className="text-xs font-semibold text-slate-500 mb-1 block">Assigné à</label>
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Assigné à <span className="font-normal text-slate-400">(plusieurs possibles)</span></label>
         <div className="flex flex-wrap gap-1.5 mb-3">
-          <button onClick={() => setAssignee("Tout le monde")} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (assignee === "Tout le monde" ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
+          <button onClick={() => toggleName("Tout le monde")} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (assignees.includes("Tout le monde") ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
             Tout le monde
           </button>
           {allNames.map((n) => (
-            <button key={n} onClick={() => setAssignee(n)} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (assignee === n ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
+            <button key={n} onClick={() => toggleName(n)} className={"text-xs font-semibold rounded-full px-2.5 py-1 border " + (assignees.includes(n) ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-500")}>
               {n}
             </button>
           ))}
