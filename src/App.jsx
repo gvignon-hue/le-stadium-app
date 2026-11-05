@@ -826,7 +826,8 @@ export default function App() {
         if (disabled.includes(key)) return;
         const r = rules.types[key];
         if (!r || !r.channels || r.channels.length === 0) return;
-        if (comm.some((a) => a.eventId === ev.id)) { newDone.push(ev.id); return; }
+        const label = summarizeEntry(ev);
+        if (comm.some((a) => a.eventId === ev.id) || comm.some((a) => a.eventDate === ev.date && a.eventLabel === label) || created.some((a) => a.eventDate === ev.date && a.eventLabel === label)) { newDone.push(ev.id); return; }
         const maxDays = Math.max(...r.channels.map((c) => Number(c.daysBefore) || 0));
         const first = isoDate(addDays(parseISODate(ev.date), -maxDays));
         const createFrom = isoDate(addDays(parseISODate(first), -lead));
@@ -844,7 +845,17 @@ export default function App() {
         });
         newDone.push(ev.id);
       });
-      if (created.length) await saveCommActions([...comm, ...created]);
+      // Nettoyage : doublons créés automatiquement (même évènement/date/libellé), jamais touchés
+      const seen = new Set();
+      let removed = false;
+      const merged = [...comm, ...created].filter((x) => {
+        const k = x.eventDate + "|" + x.eventLabel;
+        const untouched = x.createdBy === "Règles de communication" && !x.comment && (x.channels || []).every((c) => !c.done);
+        if (seen.has(k) && untouched) { removed = true; return false; }
+        seen.add(k);
+        return true;
+      });
+      if (created.length || removed) await saveCommActions(merged);
       if (newDone.length !== doneIds.length) await storageSet("comm-auto-done", newDone);
     }
   }, [saveActions, saveManagerActions, saveCommActions]);
