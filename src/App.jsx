@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
 import { supabase } from "./supabaseClient";
 import {
@@ -44,11 +45,11 @@ function personColor(name, employees) {
   if (mi === 1) return "bg-sky-600";
   return "bg-slate-500";
 }
-function PersonPill({ name, employees, dim }) {
+function PersonPill({ name, employees, dim, big }) {
   const initial = (name || "?").trim().charAt(0).toUpperCase();
   return (
-    <span className={"inline-flex items-center gap-1 rounded-full pl-0.5 pr-2 py-0.5 text-xs font-bold text-white whitespace-nowrap " + personColor(name, employees) + (dim ? " opacity-40" : "")}>
-      <span className="rounded-full bg-white flex items-center justify-center text-slate-700" style={{ width: "16px", height: "16px", fontSize: "10px" }}>{initial}</span>
+    <span className={"inline-flex items-center gap-1 rounded-full pl-0.5 py-0.5 font-bold text-white whitespace-nowrap " + (big ? "pr-3 text-sm " : "pr-2 text-xs ") + personColor(name, employees) + (dim ? " opacity-40" : "")}>
+      <span className="rounded-full bg-white flex items-center justify-center text-slate-700" style={big ? { width: "22px", height: "22px", fontSize: "12px" } : { width: "16px", height: "16px", fontSize: "10px" }}>{initial}</span>
       {name}
     </span>
   );
@@ -587,6 +588,7 @@ async function storageListByPrefix(prefix) {
 
 export default function App() {
   const [profile, setProfile] = useState({ name: "Équipe", role: "employe", generic: true });
+  const [tabsSlot, setTabsSlot] = useState(null);
   const [loginFor, setLoginFor] = useState(null);
   const [managerSession, setManagerSession] = useState(null);
   const [loginEmail, setLoginEmail] = useState("");
@@ -908,10 +910,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <style>{"@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap'); .evt-layout{display:block} .cal-cell{min-height:84px;padding:2px!important} .cal-chips{display:flex;flex-direction:column} .cal-plus{display:none} .cal-dots{display:none} .cal-plan{display:none} .cal-chip{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;word-break:break-word;font-size:9.5px;line-height:11px;padding:0 2px} .day-evt{width:9rem} .wide-main{max-width:none} .day-tl{min-width:700px} @media (min-width:1024px){ .evt-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:24px;align-items:start} .cal-cell{min-height:118px;padding:4px!important} .cal-plus{display:flex} .cal-plan{display:flex!important} .cal-chip{-webkit-line-clamp:1;font-size:11px;line-height:16px;padding:0 4px} .day-evt{width:15rem} .wide-main{width:90%} .day-tl{min-width:520px} .plan-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:24px;align-items:start} .plan-side{position:sticky;top:12px} .evt-cal{order:2} .evt-side{order:1} .day-evt .text-xs{font-size:.85rem;line-height:1.25rem} }"}</style>
+      <style>{"@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap'); :root{--hdr:100px} .evt-layout{display:block} .cal-cell{min-height:84px;padding:2px!important} .cal-chips{display:flex;flex-direction:column} .cal-plus{display:none} .cal-dots{display:none} .cal-plan{display:none} .cal-chip{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;word-break:break-word;font-size:9.5px;line-height:11px;padding:0 2px} .day-evt{width:9rem} .wide-main{max-width:none} .day-tl{min-width:700px} @media (min-width:1024px){ .evt-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:24px;align-items:start} .cal-cell{min-height:118px;padding:4px!important} .cal-plus{display:flex} .cal-plan{display:flex!important} .cal-chip{-webkit-line-clamp:1;font-size:11px;line-height:16px;padding:0 4px} .day-evt{width:15rem} .wide-main{width:90%} .day-tl{min-width:520px} .plan-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:24px;align-items:start} .plan-side{position:sticky;top:calc(var(--hdr) + 10px);max-height:calc(100vh - var(--hdr) - 20px);overflow-y:auto} .evt-cal{order:2} .evt-side{order:1} .day-evt .text-xs{font-size:.85rem;line-height:1.25rem} }"}</style>
 
-      <header className="px-4 py-3" style={{ background: "linear-gradient(135deg, #064e3b, #022c22)" }}>
-        <div className={"mx-auto flex items-center justify-between" + (wide ? " wide-main" : "")} style={wide ? undefined : { maxWidth: "64rem" }}>
+      <header className="sticky top-0" style={{ background: "linear-gradient(135deg, #064e3b, #022c22)", zIndex: 40 }}>
+        <div className="mx-auto flex items-center justify-between wide-main px-4" style={{ height: "56px" }}>
           <div className="relative flex-1 min-w-0 mr-3">
             <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap py-0.5" style={{ scrollbarWidth: "none" }}>
               {employees.map((e) => (
@@ -953,6 +955,7 @@ export default function App() {
             <img src={LOGO_B64} alt="Le Stadium" style={{ height: "40px", width: "auto" }} />
           </div>
         </div>
+        <div ref={setTabsSlot} className="mx-auto wide-main px-3" style={{ height: "44px" }} />
       </header>
 
       <main className={"mx-auto px-3 sm:px-4 py-5" + (wide ? " wide-main" : "")} style={wide ? undefined : { maxWidth: "64rem" }}>
@@ -967,14 +970,14 @@ export default function App() {
         )}
 
         {profile && (
-          <AppBody stockOthers={stockOthers} saveStockOthers={saveStockOthers} commRules={commRules} saveCommRules={saveCommRules} recTodo={recTodo} saveRecTodo={saveRecTodo} recComm={recComm} saveRecComm={saveRecComm} profile={profile} isManager={isManager} activeTab={activeTab} setActiveTab={setActiveTab} oswald={oswald} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} commActions={commActions} saveCommActions={saveCommActions} projects={projects} saveProjects={saveProjects} employees={employees} saveEmployees={saveEmployees} markers={markers} saveMarkers={saveMarkers} stockProducts={stockProducts} saveStockProducts={saveStockProducts} stockChecked={stockChecked} saveStockChecked={saveStockChecked} stockQty={stockQty} saveStockQty={saveStockQty} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} saveEventGroups={saveEventGroups} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} notes={notes} saveNotes={saveNotes} />
+          <AppBody tabsSlot={tabsSlot} stockOthers={stockOthers} saveStockOthers={saveStockOthers} commRules={commRules} saveCommRules={saveCommRules} recTodo={recTodo} saveRecTodo={saveRecTodo} recComm={recComm} saveRecComm={saveRecComm} profile={profile} isManager={isManager} activeTab={activeTab} setActiveTab={setActiveTab} oswald={oswald} actions={actions} saveActions={saveActions} managerActions={managerActions} saveManagerActions={saveManagerActions} commActions={commActions} saveCommActions={saveCommActions} projects={projects} saveProjects={saveProjects} employees={employees} saveEmployees={saveEmployees} markers={markers} saveMarkers={saveMarkers} stockProducts={stockProducts} saveStockProducts={saveStockProducts} stockChecked={stockChecked} saveStockChecked={saveStockChecked} stockQty={stockQty} saveStockQty={saveStockQty} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} saveEventGroups={saveEventGroups} commDisabledTypes={commDisabledTypes} saveCommDisabledTypes={saveCommDisabledTypes} notes={notes} saveNotes={saveNotes} />
         )}
       </main>
     </div>
   );
 }
 
-function AppBody({ stockOthers, saveStockOthers, commRules, saveCommRules, recTodo, saveRecTodo, recComm, saveRecComm, profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, managerActions, saveManagerActions, commActions, saveCommActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, stockQty, saveStockQty, eventEntries, saveEventEntries, eventGroups, saveEventGroups, commDisabledTypes, saveCommDisabledTypes, notes, saveNotes }) {
+function AppBody({ tabsSlot, stockOthers, saveStockOthers, commRules, saveCommRules, recTodo, saveRecTodo, recComm, saveRecComm, profile, isManager, activeTab, setActiveTab, oswald, actions, saveActions, managerActions, saveManagerActions, commActions, saveCommActions, projects, saveProjects, employees, saveEmployees, markers, saveMarkers, stockProducts, saveStockProducts, stockChecked, saveStockChecked, stockQty, saveStockQty, eventEntries, saveEventEntries, eventGroups, saveEventGroups, commDisabledTypes, saveCommDisabledTypes, notes, saveNotes }) {
   const todayISO = isoDate(new Date());
   const pendingOwnActions = actions.filter((a) => !a.done && hasAssignee(a, profile.name)).length;
   const pendingManagerActions = isManager ? managerActions.filter((a) => !a.done && hasAssignee(a, profile.name)).length : 0;
@@ -1002,12 +1005,13 @@ function AppBody({ stockOthers, saveStockOthers, commRules, saveCommRules, recTo
 
   return (
     <div>
-      <div className="flex gap-1 mb-4 border-b border-slate-200 overflow-x-auto whitespace-nowrap">
+      {tabsSlot && createPortal(
+      <div className="flex gap-1 h-full items-end overflow-x-auto whitespace-nowrap pr-4" style={{ scrollbarWidth: "none" }}>
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={"relative px-3 py-2 font-semibold text-sm border-b-2 -mb-px shrink-0 " + (activeTab === t.key ? "border-emerald-600 text-emerald-800" : "border-transparent text-slate-400")}
+            className={"relative px-3 pb-2 pt-3 font-semibold text-sm border-b-2 shrink-0 " + (activeTab === t.key ? "border-amber-400 text-white" : "border-transparent text-emerald-200")}
             style={oswald}
           >
             {t.label}
@@ -1036,6 +1040,7 @@ function AppBody({ stockOthers, saveStockOthers, commRules, saveCommRules, recTo
           </button>
         ))}
       </div>
+      , tabsSlot)}
 
       {activeTab === "planning" && <PlanningTab profile={profile} isManager={isManager} oswald={oswald} employees={employees} markers={markers} saveMarkers={saveMarkers} eventEntries={eventEntries} actions={actions} commActions={commActions} />}
       {activeTab === "evenement" && <EvenementTab employees={employees} profile={profile} actions={actions} saveActions={saveActions} eventEntries={eventEntries} saveEventEntries={saveEventEntries} eventGroups={eventGroups} oswald={oswald} />}
@@ -1506,9 +1511,9 @@ function CommRow({ action, status, archived, onToggleChannel, onArchive, onDelet
           <Archive size={12} /> {archived ? "Désarchiver" : "Archiver"}
         </button>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-slate-700 truncate">
+          <div className="text-base font-bold text-slate-800 truncate">
             {action.eventLabel}
-            <span className="text-slate-400 font-normal"> · {fmtDateFR(action.eventDate)}</span>
+            <span> · {fmtDateFR(action.eventDate)}</span>
           </div>
           <div className="flex flex-wrap gap-1 mt-1">
             {(action.channels || []).map((c) => {
@@ -1535,7 +1540,7 @@ function CommRow({ action, status, archived, onToggleChannel, onArchive, onDelet
           </div>
           {action.comment && <div className="text-xs text-slate-500 mt-1">{action.comment}</div>}
         </div>
-        {action.assignee && <div className="shrink-0"><PersonPill name={action.assignee} employees={employees} dim={fullyDone} /></div>}
+        {action.assignee && <div className="shrink-0"><PersonPill name={action.assignee} employees={employees} dim={fullyDone} big /></div>}
         <button onClick={onEdit} title="Modifier" className="text-slate-400 shrink-0"><Pencil size={14} /></button>
         <button onClick={onDelete} title="Supprimer" className="text-slate-400 hover:text-rose-600 shrink-0"><Trash2 size={14} /></button>
       </div>
@@ -1752,15 +1757,105 @@ function MarkerModal({ info, onClose, onSave, onDelete, oswald }) {
 
 function PlanningTab({ profile, isManager: isManagerRole, oswald, employees, markers, saveMarkers, eventEntries, actions, commActions }) {
   const [editMode, setEditMode] = useState(false);
+  const todayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+  const [fromDate, setFromDate] = useState(todayStart);
+  const [weeksShown, setWeeksShown] = useState(3);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const sentinel = useRef(null);
+  const isToday = sameDay(fromDate, new Date());
+  const firstMonday = mondayOf(fromDate);
+  const weeks = Array.from({ length: weeksShown }, (_, i) => addDays(firstMonday, 7 * i));
+
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setWeeksShown((n) => Math.min(n + 2, 60));
+    }, { rootMargin: "400px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [weeksShown]);
+
+  function shiftFrom(days) {
+    setFromDate((d) => addDays(d, days));
+    setWeeksShown(3);
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={() => shiftFrom(-7)} title="Semaine précédente" className="p-2 rounded-lg bg-white shadow-sm border border-slate-200 text-slate-600">
+          <ChevronLeft size={18} />
+        </button>
+        <div className="text-center relative">
+          <button onClick={() => setPickerOpen((o) => !o)} className="font-bold text-emerald-900" style={{ ...oswald, textDecoration: "underline", textDecorationStyle: "dotted" }}>
+            {isToday ? "À partir d'aujourd'hui" : "À partir du " + fmtDateFR(isoDate(fromDate))}
+          </button>
+          <div>
+            {isToday ? (
+              <span className="text-xs text-slate-400">Jours passés masqués · touchez la date pour voir l'historique</span>
+            ) : (
+              <button onClick={() => { setFromDate(todayStart()); setWeeksShown(3); }} className="text-xs text-amber-600 font-semibold">Revenir à aujourd'hui</button>
+            )}
+          </div>
+          {pickerOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setPickerOpen(false)} />
+              <div className="absolute mt-2 z-50 bg-white rounded-lg shadow-lg border border-slate-200 p-3" style={{ left: "50%", transform: "translateX(-50%)" }}>
+                <div className="text-xs text-slate-400 mb-1 whitespace-nowrap">Afficher les jours à partir du :</div>
+                <input
+                  type="date"
+                  autoFocus
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setFromDate(new Date(e.target.value + "T00:00:00"));
+                      setWeeksShown(3);
+                      setPickerOpen(false);
+                    }
+                  }}
+                  className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
+                />
+              </div>
+            </>
+          )}
+        </div>
+        <button onClick={() => shiftFrom(7)} title="Semaine suivante" className="p-2 rounded-lg bg-white shadow-sm border border-slate-200 text-slate-600">
+          <ChevronRight size={18} />
+        </button>
+      </div>
+
+      {isManagerRole && (
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <p className="text-xs text-slate-400 hidden sm:block">
+            {editMode ? "Cliquez une ligne pour ajouter (créneau, CP ou cours). Sur ordinateur : glissez sur une ligne pour créer, glissez un créneau pour le déplacer, tirez ses bords pour l'agrandir. Le « + » à côté d'une date ajoute un extra." : "Planning en lecture seule. Cliquez sur « Modifier » pour changer le planning."}
+          </p>
+          <button
+            onClick={() => setEditMode((m) => !m)}
+            className={"shrink-0 ml-auto flex items-center gap-1.5 text-sm font-bold rounded-lg px-3 py-1.5 border " + (editMode ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-emerald-700 border-emerald-300")}
+          >
+            {editMode ? <><Check size={15} /> Terminer</> : <><Pencil size={15} /> Modifier</>}
+          </button>
+        </div>
+      )}
+
+      {weeks.map((w) => (
+        <WeekBlock key={isoDate(w)} weekStart={w} fromDate={fromDate} editMode={editMode} profile={profile} isManager={isManagerRole} oswald={oswald} employees={employees} markers={markers} saveMarkers={saveMarkers} eventEntries={eventEntries} actions={actions} commActions={commActions} />
+      ))}
+      <div ref={sentinel} className="py-4 text-center">
+        <button onClick={() => setWeeksShown((n) => Math.min(n + 2, 60))} className="text-xs font-semibold text-slate-400 border border-slate-200 rounded-lg px-3 py-1.5 bg-white">Afficher 2 semaines de plus</button>
+      </div>
+    </div>
+  );
+}
+
+function WeekBlock({ weekStart, fromDate, editMode, profile, isManager: isManagerRole, oswald, employees, markers, saveMarkers, eventEntries, actions, commActions }) {
   const [markerModal, setMarkerModal] = useState(null);
   const isManager = isManagerRole && editMode;
-  const [weekStart, setWeekStart] = useState(mondayOf(new Date()));
   const [slots, setSlots] = useState([]);
   const [events, setEvents] = useState({});
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [viewSlot, setViewSlot] = useState(null);
-  const [weekPickerOpen, setWeekPickerOpen] = useState(false);
 
   const weekKey = isoDate(weekStart);
 
@@ -1796,13 +1891,6 @@ function PlanningTab({ profile, isManager: isManagerRole, oswald, employees, mar
     setEvents(next);
     await storageSet("events:" + weekKey, next);
   }, [weekKey]);
-
-  function changeWeek(delta) {
-    setWeekStart((w) => addDays(w, delta * 7));
-  }
-  function goToday() {
-    setWeekStart(mondayOf(new Date()));
-  }
 
   function openAddModal(dayIndex, employee, x, width) {
     const ratio = Math.min(1, Math.max(0, x / width));
@@ -1872,60 +1960,13 @@ function PlanningTab({ profile, isManager: isManagerRole, oswald, employees, mar
   const weekEnd = addDays(weekStart, 6);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <button onClick={() => changeWeek(-1)} className="p-2 rounded-lg bg-white shadow-sm border border-slate-200 text-slate-600">
-          <ChevronLeft size={18} />
-        </button>
-        <div className="text-center relative">
-          <button onClick={() => setWeekPickerOpen((o) => !o)} className="font-bold text-emerald-900" style={{ ...oswald, textDecoration: "underline", textDecorationStyle: "dotted" }}>
-            Semaine du {fmtShort(weekStart)} au {fmtShort(weekEnd)}
-          </button>
-          <div>
-            <button onClick={goToday} className="text-xs text-amber-600 font-semibold">Revenir à aujourd'hui</button>
-          </div>
-          {weekPickerOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setWeekPickerOpen(false)} />
-              <div className="absolute mt-2 z-50 bg-white rounded-lg shadow-lg border border-slate-200 p-3" style={{ left: "50%", transform: "translateX(-50%)" }}>
-                <input
-                  type="date"
-                  autoFocus
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      setWeekStart(mondayOf(new Date(e.target.value + "T00:00:00")));
-                      setWeekPickerOpen(false);
-                    }
-                  }}
-                  className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
-                />
-              </div>
-            </>
-          )}
-        </div>
-        <button onClick={() => changeWeek(1)} className="p-2 rounded-lg bg-white shadow-sm border border-slate-200 text-slate-600">
-          <ChevronRight size={18} />
-        </button>
-      </div>
-
-      {isManagerRole && (
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <p className="text-xs text-slate-400 hidden sm:block">
-            {editMode ? "Cliquez une ligne pour ajouter (créneau, CP ou cours). Sur ordinateur : glissez sur une ligne pour créer, glissez un créneau pour le déplacer, tirez ses bords pour l'agrandir. Le « + » à côté d'une date ajoute un extra." : "Planning en lecture seule. Cliquez sur « Modifier » pour changer le planning."}
-          </p>
-          <button
-            onClick={() => setEditMode((m) => !m)}
-            className={"shrink-0 ml-auto flex items-center gap-1.5 text-sm font-bold rounded-lg px-3 py-1.5 border " + (editMode ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-emerald-700 border-emerald-300")}
-          >
-            {editMode ? <><Check size={15} /> Terminer</> : <><Pencil size={15} /> Modifier</>}
-          </button>
-        </div>
-      )}
+    <div className="mb-6">
+      <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Semaine du {fmtShort(weekStart)} au {fmtShort(weekEnd)}</div>
 
       {loading ? (
         <div className="text-center text-slate-400 py-10">Chargement du planning…</div>
       ) : (
-        <div className="plan-layout"><div style={{ minWidth: 0 }}>{Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map((date, dayIndex) => (
+        <div className="plan-layout"><div style={{ minWidth: 0 }}>{Array.from({ length: 7 }, (_, i) => i).filter((i) => addDays(weekStart, i) >= fromDate).map((dayIndex) => { const date = addDays(weekStart, dayIndex); return (
           <DayCard
             key={dayIndex}
             date={date}
@@ -1948,10 +1989,10 @@ function PlanningTab({ profile, isManager: isManagerRole, oswald, employees, mar
             dayEvents={eventEntries.filter((e) => e.date === isoDate(date))}
             onAddExtra={isManager ? openAddExtra : null}
           />
-        ))}
+        ); })}
         </div>
         <div className="plan-side" style={{ minWidth: 0 }}>
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 mt-3 lg:mt-0">Récap — présence par heure</div>
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 mt-1 lg:mt-0">Récap — présence par heure</div>
           <RecapView weekStart={weekStart} slots={slots} oswald={oswald} />
           <WeeklyTotals slots={slots} oswald={oswald} employees={employees} markers={weekMarkers} />
         </div>
@@ -4047,6 +4088,7 @@ function ProjectModal({ modal, onClose, onSave, onDelete, oswald, allNames }) {
 function StockTab({ products, saveProducts, checked, saveChecked, qty, saveQty, others, saveOthers, oswald }) {
   const [manageOpen, setManageOpen] = useState(false);
   const [otherName, setOtherName] = useState("");
+  const [onlyOrder, setOnlyOrder] = useState(false);
   const [modal, setModal] = useState(null);
 
   async function toggleChecked(id) {
@@ -4100,8 +4142,10 @@ function StockTab({ products, saveProducts, checked, saveChecked, qty, saveQty, 
       if (!map[p.group]) { map[p.group] = []; order.push(p.group); }
       map[p.group].push(p);
     });
-    return order.map((g) => ({ name: g, items: map[g] }));
-  }, [products]);
+    const all = order.map((g) => ({ name: g, items: map[g] }));
+    if (!onlyOrder || manageOpen) return all;
+    return all.map((g) => ({ ...g, items: g.items.filter((p) => checked.includes(p.id)) })).filter((g) => g.items.length > 0);
+  }, [products, onlyOrder, manageOpen, checked]);
 
   return (
     <div>
@@ -4115,13 +4159,22 @@ function StockTab({ products, saveProducts, checked, saveChecked, qty, saveQty, 
         </button>
       </div>
 
-      <button
-        onClick={uncheckAll}
-        disabled={checked.length === 0}
-        className="mb-3 text-xs font-semibold text-slate-500 border border-slate-200 rounded-lg px-3 py-1.5 disabled:opacity-40"
-      >
-        Tout décocher
-      </button>
+      <div className="flex flex-wrap gap-2 mb-3">
+        <button
+          onClick={() => setOnlyOrder((o) => !o)}
+          className={"text-xs font-semibold rounded-lg px-3 py-1.5 border " + (onlyOrder ? "bg-rose-500 text-white border-rose-500" : "text-slate-600 border-slate-200 bg-white")}
+        >
+          {onlyOrder ? "✓ " : ""}À commander seulement
+        </button>
+        <button
+          onClick={uncheckAll}
+          disabled={checked.length === 0}
+          className="text-xs font-semibold text-slate-500 border border-slate-200 rounded-lg px-3 py-1.5 disabled:opacity-40"
+        >
+          Tout décocher
+        </button>
+      </div>
+      {onlyOrder && !manageOpen && groups.length === 0 && <div className="text-center text-slate-400 py-6 text-sm">Rien à commander pour l'instant.</div>}
 
       {manageOpen && (
         <button
