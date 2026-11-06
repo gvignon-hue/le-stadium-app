@@ -16,6 +16,7 @@ const DAY_SHORT = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const RANGE_START = 8 * 60;
 const RANGE_END = 23 * 60 + 30;
 const RANGE_TOTAL = RANGE_END - RANGE_START;
+const RANGE_MAX = 28 * 60; // fin de créneau possible jusqu'à 4h du matin (jour suivant)
 const HOURS = Array.from({ length: 16 }, (_, i) => 8 + i);
 
 const PRESETS = [
@@ -520,7 +521,7 @@ function pct(minutes) {
   return Math.max(0, Math.min(100, (minutes / RANGE_TOTAL) * 100));
 }
 function fmtTime(m) {
-  const h = Math.floor(m / 60);
+  const h = Math.floor(m / 60) % 24;
   const mm = m % 60;
   return mm === 0 ? `${h}h` : `${h}h${String(mm).padStart(2, "0")}`;
 }
@@ -910,7 +911,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <style>{"@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap'); :root{--hdr:100px} .evt-layout{display:block} .cal-cell{min-height:84px;padding:2px!important} .cal-chips{display:flex;flex-direction:column} .cal-plus{display:none} .cal-dots{display:none} .cal-plan{display:none} .cal-chip{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;word-break:break-word;font-size:9.5px;line-height:11px;padding:0 2px} .day-evt{width:9rem} .wide-main{max-width:none} .day-tl{min-width:700px} @media (min-width:1024px){ .evt-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:24px;align-items:start} .cal-cell{min-height:118px;padding:4px!important} .cal-plus{display:flex} .cal-plan{display:flex!important} .cal-chip{-webkit-line-clamp:1;font-size:11px;line-height:16px;padding:0 4px} .day-evt{width:15rem} .wide-main{width:90%} .day-tl{min-width:520px} .plan-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:24px;align-items:start} .plan-side{position:sticky;top:calc(var(--hdr) + 10px);max-height:calc(100vh - var(--hdr) - 20px);overflow-y:auto} .evt-cal{order:2} .evt-side{order:1} .day-evt .text-xs{font-size:.85rem;line-height:1.25rem} }"}</style>
+      <style>{"@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap'); :root{--hdr:100px} .evt-layout{display:block} .cal-cell{min-height:84px;padding:2px!important} .cal-chips{display:flex;flex-direction:column} .cal-plus{display:none} .cal-dots{display:none} .cal-plan{display:none} .cal-chip{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;word-break:break-word;font-size:9.5px;line-height:11px;padding:0 2px} .day-evt{width:9rem} .wide-main{max-width:none} .day-tl{min-width:700px} @media (min-width:1024px){ .evt-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:24px;align-items:start} .cal-cell{min-height:118px;padding:4px!important} .cal-plus{display:flex} .cal-plan{display:flex!important} .cal-chip{-webkit-line-clamp:1;font-size:11px;line-height:16px;padding:0 4px} .day-evt{width:15rem} .wide-main{width:90%} .day-tl{min-width:520px} .plan-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:24px;align-items:start} .plan-side{position:sticky;top:calc(var(--hdr) + 130px);max-height:calc(100vh - var(--hdr) - 140px);overflow-y:auto} .evt-cal{order:2;position:sticky;top:calc(var(--hdr) + 10px);max-height:calc(100vh - var(--hdr) - 20px);overflow-y:auto} .evt-side{order:1} .day-evt .text-xs{font-size:.85rem;line-height:1.25rem} }"}</style>
 
       <header className="sticky top-0" style={{ background: "linear-gradient(135deg, #064e3b, #022c22)", zIndex: 40 }}>
         <div className="mx-auto flex items-center justify-between wide-main px-4" style={{ height: "56px" }}>
@@ -923,6 +924,9 @@ export default function App() {
               {MANAGERS.map((n) => (
                 <ProfileChip key={n} label={n} manager active={profile.role === "manager" && profile.name === n} onClick={() => clickManager(n)} />
               ))}
+              {(activeTab === "todo" || activeTab === "communication") && (
+                <span className="shrink-0 text-emerald-300 ml-2" style={{ fontSize: "10px" }}>pour filtrer, sélectionner la personne</span>
+              )}
               {managerSession && (
                 <button onClick={handleManagerLogout} className="shrink-0 text-xs text-emerald-300 underline ml-1">Déconnexion</button>
               )}
@@ -1783,6 +1787,7 @@ function PlanningTab({ profile, isManager: isManagerRole, oswald, employees, mar
 
   return (
     <div>
+      <div className="sticky pb-2 pt-1" style={{ top: "var(--hdr)", zIndex: 30, background: "#f1f5f9" }}>
       <div className="flex items-center justify-between mb-3">
         <button onClick={() => shiftFrom(-7)} title="Semaine précédente" className="p-2 rounded-lg bg-white shadow-sm border border-slate-200 text-slate-600">
           <ChevronLeft size={18} />
@@ -1837,6 +1842,7 @@ function PlanningTab({ profile, isManager: isManagerRole, oswald, employees, mar
           </button>
         </div>
       )}
+      </div>
 
       {weeks.map((w) => (
         <WeekBlock key={isoDate(w)} weekStart={w} fromDate={fromDate} editMode={editMode} profile={profile} isManager={isManagerRole} oswald={oswald} employees={employees} markers={markers} saveMarkers={saveMarkers} eventEntries={eventEntries} actions={actions} commActions={commActions} />
@@ -2050,11 +2056,11 @@ function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, curr
     const dur = slot.end - slot.start;
     beginDrag(e, rect, (dm) => {
       if (mode === "move") {
-        const st = clampN(slot.start + dm, RANGE_START, RANGE_END - dur);
+        const st = clampN(slot.start + dm, RANGE_START, Math.max(RANGE_START, Math.min(RANGE_END - 30, RANGE_MAX - dur)));
         return { id: slot.id, start: st, end: st + dur };
       }
       if (mode === "l") return { id: slot.id, start: clampN(slot.start + dm, RANGE_START, slot.end - 30), end: slot.end };
-      return { id: slot.id, start: slot.start, end: clampN(slot.end + dm, slot.start + 30, RANGE_END) };
+      return { id: slot.id, start: slot.start, end: clampN(slot.end + dm, slot.start + 30, slot.end > RANGE_END ? RANGE_MAX : RANGE_END) };
     }, (r) => onMoveSlot(slot.id, r.start, r.end));
   }
   function barPointerDown(e, emp) {
@@ -2162,10 +2168,10 @@ function DayCard({ date, dayIndex, slots, isManager, onAddSlot, onEditSlot, curr
                             onPointerDown={(e) => slotPointerDown(e, slot, "move")}
                             onClick={(e) => { e.stopPropagation(); if (suppress.current) return; onEditSlot(slot); }}
                             className={"absolute top-0.5 bottom-0.5 rounded flex items-center px-1.5 text-white text-xs font-semibold overflow-hidden select-none " + colors.bg + (drag && drag.id === slot.id ? " ring-2 ring-amber-400 z-10" : "")}
-                            style={{ left: pct(d.start - RANGE_START) + "%", width: pct(d.end - d.start) + "%", cursor: isManager ? "grab" : "pointer" }}
+                            style={{ left: pct(d.start - RANGE_START) + "%", width: pct(Math.min(d.end, RANGE_END) - d.start) + "%", cursor: isManager ? "grab" : "pointer" }}
                           >
                             {isManager && <span onPointerDown={(e) => slotPointerDown(e, slot, "l")} className="absolute left-0 top-0 bottom-0 w-1.5 bg-black/20" style={{ cursor: "ew-resize" }} />}
-                            <span className="truncate">{fmtTime(d.start)}–{fmtTime(d.end)}</span>
+                            <span className="truncate">{fmtTime(d.start)}–{fmtTime(d.end)}{d.end > 24 * 60 ? " (+1)" : ""}</span>
                             {slot.comment && <MessageSquare size={11} className="ml-1 shrink-0" />}
                             {isManager && <span onPointerDown={(e) => slotPointerDown(e, slot, "r")} className="absolute right-0 top-0 bottom-0 w-1.5 bg-black/20" style={{ cursor: "ew-resize" }} />}
                           </div>
@@ -2300,7 +2306,7 @@ function SlotModal({ modal, onClose, onSave, onDelete, oswald, employees, onPick
   const [error, setError] = useState("");
   const [name, setName] = useState(modal.employee || "");
   const timeOptions = [];
-  for (let m = RANGE_START; m <= RANGE_END; m += 30) timeOptions.push(m);
+  for (let m = RANGE_START; m <= RANGE_MAX; m += 30) timeOptions.push(m);
   const colors = modal.extra ? EXTRA_COLORS : empColor(modal.employee, employees);
 
   function submit() {
@@ -2363,13 +2369,13 @@ function SlotModal({ modal, onClose, onSave, onDelete, oswald, employees, onPick
           <div>
             <label className="text-xs font-semibold text-slate-500 mb-1 block">Début</label>
             <select value={start} onChange={(e) => { setStart(Number(e.target.value)); setError(""); }} className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm">
-              {timeOptions.map((m) => <option key={m} value={m}>{fmtTime(m)}</option>)}
+              {timeOptions.map((m) => <option key={m} value={m}>{fmtTime(m)}{m >= 24 * 60 ? " (lendemain)" : ""}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs font-semibold text-slate-500 mb-1 block">Fin</label>
             <select value={end} onChange={(e) => { setEnd(Number(e.target.value)); setError(""); }} className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm">
-              {timeOptions.map((m) => <option key={m} value={m}>{fmtTime(m)}</option>)}
+              {timeOptions.map((m) => <option key={m} value={m}>{fmtTime(m)}{m >= 24 * 60 ? " (lendemain)" : ""}</option>)}
             </select>
           </div>
         </div>
