@@ -189,6 +189,30 @@ input.hm{width:90px}
   .head-in{padding:24px 20px 0} main{padding:20px 12px 50px} section.card{padding:16px}
   .pair-conv{grid-template-columns:1fr} .pair-conv .acts{justify-content:flex-start}
 }
+@media (max-width:640px){
+  .round{min-width:270px;flex:1 0 270px}
+  .side{height:auto!important;min-height:38px;font-size:15px;padding:6px 8px}
+  .side .nm{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.2;word-break:break-word}
+  .match .meta{font-size:15px;flex-wrap:wrap}
+  .match input.score,.score-side,.score.sp,.score-p{width:40px;font-size:15px}
+  .bracket{gap:30px}
+  .mt{font-size:16px}
+  .mt thead{display:none}
+  .mt,.mt tbody{display:block}
+  .mt tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:12px 2px;border-bottom:1px solid var(--line)}
+  .mt td{border:0;padding:0;display:block}
+  .mt td[data-l]::before{content:attr(data-l) " : ";font-size:12px;color:var(--muted);font-weight:600}
+  .mt td.pn{order:-2;flex:1 1 100%;font-size:18px;line-height:1.3}
+  .mt td.tel{flex:1 1 100%;font-size:15px!important}
+  .mt td.pp{flex:1 1 100%;order:5}
+  .mt td.pp .pbtn{font-size:16px;padding:8px 10px}
+  .mt td[colspan]{flex:1 1 100%}
+  .mt input[type=checkbox]{width:22px;height:22px;vertical-align:middle}
+  .mt .btn{font-size:14px!important;padding:6px 10px!important}
+  .pools{grid-template-columns:1fr}
+  .pool-ms{grid-template-columns:1fr}
+  table.stand td,table.stand th{padding:6px 5px;font-size:15px}
+}
 @media print{
   header nav, .noprint{display:none!important}
   header{background:none;color:#000} header::before,header::after{display:none}
@@ -539,8 +563,57 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const cap=s=>String(s||'').toLowerCase().replace(/(^|[\s'-])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 function normTel(t){let s=String(t||'').replace(/[^\d+]/g,'');if(!s)return'';if(s.startsWith('+'))s=s.slice(1);else if(s.startsWith('00'))s=s.slice(2);else if(s.startsWith('0'))s='33'+s.slice(1);else if(s.length===9)s='33'+s;return s}
-function smsHref(tel,txt){const sep=/iPhone|iPad|iPod/i.test(navigator.userAgent)?'&':'?';return`sms:+${tel}${sep}body=${encodeURIComponent(txt)}`}
-function smsGroupHref(tels,txt){const sep=/iPhone|iPad|iPod/i.test(navigator.userAgent)?'&':'?';return`sms:${tels.map(t=>'+'+t).join(',')}${sep}body=${encodeURIComponent(txt)}`}
+function smsHref(tel,txt){const sep=isIOS()?'&':'?';return`sms:+${tel}${sep}body=${encodeURIComponent(txt)}`}
+function isIOS(){return /iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)}
+function smsGroupHref(tels,txt){const l=tels.map(t=>'+'+t).join(',');return isIOS()?`sms:/open?addresses=${l}&body=${encodeURIComponent(txt)}`:`sms:${l}?body=${encodeURIComponent(txt)}`}
+// Départage à égalité de victoires : 1) différence de jeux gagnés/perdus, 2) matchs directs entre les ex-æquo, 3) différence de sets, 4) poids de paire
+function rankTied(g,ms,pw){
+  if(g.length<2)return g;
+  const gd=x=>x.gw-x.gl;
+  g=g.slice().sort((x,y)=>gd(y)-gd(x));
+  const out=[];let i=0;
+  while(i<g.length){let j=i;while(j<g.length&&gd(g[j])===gd(g[i]))j++;
+    const sub=g.slice(i,j);
+    if(sub.length>1){
+      const ids=sub.map(x=>x.id),dw={};ids.forEach(id=>dw[id]=0);
+      ms.forEach(m=>{if(m.winner&&ids.includes(m.a)&&ids.includes(m.b))dw[m.winner]++});
+      sub.sort((x,y)=>(dw[y.id]-dw[x.id])||((y.sw-y.sl)-(x.sw-x.sl))||pw(x.id)-pw(y.id));
+    }
+    out.push(...sub);i=j}
+  return out;
+}
+// Fenêtre de saisie du score après le choix d'un vainqueur
+function askScore(id,winPid){
+  const D=S.draw,Mo=model(),m=Mo.M[id];if(!m||m.forfeit||!m.a||!m.b)return;
+  const cur=D.scores[id];if(Array.isArray(cur)?cur.some(v=>v&&(v[0]!==''||v[1]!=='')):String(cur||'').trim())return;
+  const F=fmt(),nm=pid=>esc(label(byId(pid)));
+  const ov=document.createElement('div');ov.className='noprint';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:14px';
+  const inp=(k,si)=>`<input inputmode="numeric" data-k="${k}" data-si="${si}" aria-label="${F.sets[k]==='TB'?'Super tie-break':'Set '+(k+1)}" style="width:64px;box-sizing:border-box;text-align:center;font-size:20px;padding:8px 4px;color:var(--ink);background:var(--bg)">`;
+  ov.innerHTML=`<div style="max-width:420px;width:100%;max-height:92vh;overflow:auto;box-sizing:border-box;background:var(--surface,#fff);color:var(--ink,#16202C);border-radius:12px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.35)">
+    <h3 style="margin:0 0 4px;color:var(--court)">Score du match M${m.num}</h3>
+    <p class="muted" style="margin:0 0 12px;font-size:14px">Vainqueur : <strong>${nm(winPid)}</strong></p>
+    ${[0,1].map(si=>`<div style="margin-bottom:12px"><div style="font-size:15px;margin-bottom:4px;${[m.a,m.b][si]===winPid?'font-weight:700':''}">${nm([m.a,m.b][si])}</div>
+      <div style="display:flex;gap:8px;align-items:flex-end">${F.sets.map((x,k)=>`<label style="display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;font-weight:700;color:var(--muted)">${x==='TB'?'Super TB':'Set '+(k+1)}${inp(k,si)}</label>`).join('')}</div></div>`).join('')}
+    <div class="err" style="color:var(--danger);font-size:13px;min-height:18px"></div>
+    <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end"><button class="btn ghost" data-act="skip">Passer</button><button class="btn" data-act="ok">Enregistrer</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const first=ov.querySelector('input');if(first)first.focus();
+  const close=()=>ov.remove();
+  ov.onclick=e=>{if(e.target===ov)close()};
+  ov.querySelectorAll('input').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter')ov.querySelector('[data-act=ok]').click()}));
+  ov.querySelector('[data-act=skip]').onclick=close;
+  ov.querySelector('[data-act=ok]').onclick=()=>{
+    const sc=F.sets.map((_,k)=>[0,1].map(si=>ov.querySelector(`input[data-k="${k}"][data-si="${si}"]`).value.trim()));
+    const filled=sc.filter(v=>v[0]!==''||v[1]!=='');
+    if(!filled.length){close();return}
+    if(filled.some(v=>v[0]===''||v[1]===''||isNaN(+v[0])||isNaN(+v[1]))){ov.querySelector('.err').textContent='Renseignez les deux scores de chaque set saisi.';return}
+    const w=autoWin(sc);
+    if(w&&m[w]!==winPid){ov.querySelector('.err').textContent='Ce score donne la victoire à l\'autre paire.';return}
+    D.scores[id]=sc;save();close();render();
+  };
+}
 function parseHM(v){const m=String(v||'').trim().match(/^(\d{1,2})\s*[h:.]\s*(\d{0,2})$/i)||String(v||'').trim().match(/^(\d{1,2})$/);if(!m)return null;const h=+m[1],mi=+(m[2]||0);return h<24&&mi<60?h*60+mi:null}
 const telFR=t=>t.startsWith('33')&&t.length===11?('0'+t.slice(2)).replace(/(\d{2})(?=\d)/g,'$1 '):'+'+t;
 const toMin=v=>parseHM(v)??540;
@@ -762,13 +835,10 @@ function model(){
       parseScore(D.scores[m.id]).sets.forEach(([x,y],k)=>{x=+x;y=+y;if(x>y){A.sw++;B.sl++}else if(y>x){B.sw++;A.sl++}
         if(F.sets[k]!=='TB'){A.gw+=x;A.gl+=y;B.gw+=y;B.gl+=x}})});
     const pw=id=>byId(id)?.poids??1e9;
-    const h2h=(x,y)=>{const m=ms.find(m=>(m.a===x&&m.b===y)||(m.a===y&&m.b===x));return m&&m.winner?(m.winner===x?-1:1):0};
     const rows=Object.values(st).sort((x,y)=>y.v-x.v||0);
     const out=[];let i0=0;
-    while(i0<rows.length){let j=i0;while(j<rows.length&&rows[j].v===rows[i0].v)j++;const g=rows.slice(i0,j);
-      if(g.length===2)g.sort((x,y)=>h2h(x.id,y.id)||((y.sw-y.sl)-(x.sw-x.sl))||((y.gw-y.gl)-(x.gw-x.gl))||pw(x.id)-pw(y.id));
-      else g.sort((x,y)=>((y.sw-y.sl)-(x.sw-x.sl))||((y.gw-y.gl)-(x.gw-x.gl))||pw(x.id)-pw(y.id));
-      out.push(...g);i0=j}
+    while(i0<rows.length){let j=i0;while(j<rows.length&&rows[j].v===rows[i0].v)j++;
+      out.push(...rankTied(rows.slice(i0,j),ms,pw));i0=j}
     return{rows:out,complete:ms.length>0&&ms.every(m=>m.winner),ms};
   });
 
@@ -796,13 +866,10 @@ function model(){
         if(F.sets[k]!=='TB'){A.gw+=x;A.gl+=y;B.gw+=y;B.gl+=x}});
     });
     const pw=id=>byId(id)?.poids??1e9;
-    const h2h=(x,y)=>{const m=ms.find(mm=>(mm.a===x&&mm.b===y)||(mm.a===y&&mm.b===x));return m&&m.winner?(m.winner===x?-1:1):0};
     const sorted=Object.values(st).sort((x,y)=>y.v-x.v||0);
     const rows=[];let i0=0;
-    while(i0<sorted.length){let j=i0;while(j<sorted.length&&sorted[j].v===sorted[i0].v)j++;const g=sorted.slice(i0,j);
-      if(g.length===2)g.sort((x,y)=>h2h(x.id,y.id)||((y.sw-y.sl)-(x.sw-x.sl))||((y.gw-y.gl)-(x.gw-x.gl))||pw(x.id)-pw(y.id));
-      else g.sort((x,y)=>((y.sw-y.sl)-(x.sw-x.sl))||((y.gw-y.gl)-(x.gw-x.gl))||pw(x.id)-pw(y.id));
-      rows.push(...g);i0=j}
+    while(i0<sorted.length){let j=i0;while(j<sorted.length&&sorted[j].v===sorted[i0].v)j++;
+      rows.push(...rankTied(sorted.slice(i0,j),ms,pw));i0=j}
     const complete=ms.every(m=>m.winner);
     trio.complete=complete;trio.rows=rows;
   });
@@ -1003,15 +1070,15 @@ function vPaires(){
       </select></label>
       <div class="muted" style="padding-bottom:8px">Tableau de ${size} : ${act.length} paires, ${size-act.length} exempt${size-act.length>1?'s':''}</div>`}
     </div>
-    <div class="scroll"><table>
+    <div class="scroll"><table class="mt">
       <thead><tr><th>Joue</th><th>Présence</th><th>Payé</th><th>#</th><th>Paire</th><th>Téléphones</th><th>Clubs</th><th class="num">Poids</th><th></th></tr></thead>
       <tbody>${ps.map((p,i)=>{const ts=seedIds.indexOf(p.id);return`<tr class="${S.out[p.id]?'out':''}">
-        <td><input type="checkbox" data-out="${p.id}" ${S.out[p.id]?'':'checked'} aria-label="Paire présente"></td>
-        <td><input type="checkbox" data-confirmed="${p.id}" ${S.confirmed[p.id]?'checked':''} aria-label="Présence confirmée"></td>
+        <td data-l="Joue"><input type="checkbox" data-out="${p.id}" ${S.out[p.id]?'':'checked'} aria-label="Paire présente"></td>
+        <td data-l="Présent"><input type="checkbox" data-confirmed="${p.id}" ${S.confirmed[p.id]?'checked':''} aria-label="Présence confirmée"></td>
         <td style="white-space:nowrap">${[0,1].map(k=>{const pk=p.id+'-'+k;return`<label style="display:flex;align-items:center;gap:5px;font-size:12px;margin:2px 0"><input type="checkbox" data-paid="${pk}" ${S.paid[pk]?'checked':''} aria-label="${esc(p.p[k].prenom)} a payé">${esc(p.p[k].prenom)}</label>`}).join('')}</td>
         <td class="num">${i+1}</td>
-        <td>${ts>=0?`<span class="ts">TS${ts+1}</span>`:''}<strong>${esc(p.p[0].nom)}</strong> ${esc(p.p[0].prenom)}<br><strong>${esc(p.p[1].nom)}</strong> ${esc(p.p[1].prenom)}</td>
-        <td class="num" style="white-space:nowrap;font-size:14px">${p.p.map(j=>j.tel?`<a href="tel:+${j.tel}" target="_top" style="color:inherit">${esc(j.prenom)} : ${telFR(j.tel)}</a>`:`<span class="muted">${esc(j.prenom)} : pas de numéro</span>`).join('<br>')}</td>
+        <td class="pn">${ts>=0?`<span class="ts">TS${ts+1}</span>`:''}<strong>${esc(p.p[0].nom)}</strong> ${esc(p.p[0].prenom)}<br><strong>${esc(p.p[1].nom)}</strong> ${esc(p.p[1].prenom)}</td>
+        <td class="num tel" style="white-space:nowrap;font-size:14px">${p.p.map(j=>j.tel?`<a href="tel:+${j.tel}" target="_top" style="color:inherit">${esc(j.prenom)} : ${telFR(j.tel)}</a>`:`<span class="muted">${esc(j.prenom)} : pas de numéro</span>`).join('<br>')}</td>
         <td class="muted" style="font-size:13px">${esc(cap(p.p[0].club))}${p.p[1].club!==p.p[0].club?'<br>'+esc(cap(p.p[1].club)):''}</td>
         <td class="num"><strong>${p.poids}</strong></td>
         <td><button class="btn ghost noprint" data-editpair="${p.id}" style="padding:3px 8px;font-size:12px" title="Remplacer ou modifier cette paire">✎</button></td></tr>
@@ -1102,7 +1169,7 @@ function triBlock(Mo,trio,sub){
     <div class="scroll"><table class="stand"><thead><tr><th>#</th><th>Paire</th><th class="num">V</th><th class="num">D</th><th class="num">Sets</th><th class="num">Jeux</th></tr></thead><tbody>
     ${rows.length?rows.map((r,k)=>`<tr><td class="num"><strong>${nth(trio.lo+k)}</strong></td><td>${esc(label(byId(r.id)))}</td><td class="num">${r.v}</td><td class="num">${r.d}</td><td class="num">${sign(r.sw-r.sl)}</td><td class="num">${sign(r.gw-r.gl)}</td></tr>`).join(''):`<tr><td colspan="6" class="muted">En attente des équipes…</td></tr>`}
     </tbody></table></div>
-    <p class="muted" style="font-size:13px;margin:8px 0">${trio.complete?'Classement final (règle FFT : victoires, confrontation directe, puis différence de sets et de jeux).':'Poule à '+trio.entrants.length+' : chaque équipe affronte les deux autres. Classement FFT : victoires, puis confrontation directe ou sets/jeux.'}</p>
+    <p class="muted" style="font-size:13px;margin:8px 0">${trio.complete?'Classement final : victoires, puis différence de jeux, puis matchs directs entre ex-æquo.':'Poule à '+trio.entrants.length+' : chaque équipe affronte les deux autres. Classement : victoires, puis différence de jeux, puis matchs directs.'}</p>
     <div class="ms">${trio.matches.map(m=>`<div class="mw">${matchBox(Mo,m,true)}</div>`).join('')}</div>`;
   return sub?`<div class="subtab"><h3 class="subtitle">${placesLabel(trio.lo,trio.hi)}</h3>${inner}</div>`:`<section class="card"><h2>${placesLabel(trio.lo,trio.hi)}</h2>${inner}</section>`;
 }
@@ -1185,13 +1252,13 @@ function vPlanning(){
   </section>
   <section class="card">
     <h2>Planning</h2>
-    <div class="scroll"><table>
+    <div class="scroll"><table class="mt mp">
       <thead><tr><th>Match</th><th>Tableau</th><th>Heure</th><th>Terrain</th><th>Paires</th></tr></thead>
       <tbody>${real.map(m=>`<tr class="${m.winner?'done':''}">
         <td><strong>M${m.num}</strong></td><td class="muted">${rname(m)}</td>
-        <td>${timeSelect(m,Mo.slots)}</td>
-        <td><input type="number" min="1" max="${s.courts}" data-court="${m.id}" value="${m.court}" aria-label="Terrain M${m.num}"></td>
-        <td>${['a','b'].map(x=>`<button class="pbtn ${m.winner&&m.winner===m[x]?'win':''}" ${m.a&&m.b?`data-win="${m.id}" data-pid="${m[x]}"`:'disabled'}>${sideLabel(Mo.M,m,x)}</button>`).join(' <span class="muted">contre</span> ')}</td></tr>`).join('')}</tbody>
+        <td data-l="Heure">${timeSelect(m,Mo.slots)}</td>
+        <td data-l="Terrain"><input type="number" min="1" max="${s.courts}" data-court="${m.id}" value="${m.court}" aria-label="Terrain M${m.num}"></td>
+        <td class="pp">${['a','b'].map(x=>`<button class="pbtn ${m.winner&&m.winner===m[x]?'win':''}" ${m.a&&m.b?`data-win="${m.id}" data-pid="${m[x]}"`:'disabled'}>${sideLabel(Mo.M,m,x)}</button>`).join(' <span class="muted">contre</span> ')}</td></tr>`).join('')}</tbody>
     </table></div>
     <button class="btn ghost noprint" id="resetTimes" style="margin-top:12px">Recalculer les horaires automatiquement</button>
   </section>`;
@@ -1292,7 +1359,7 @@ function bind(){
     pair.poids=(Number(pair.p[0].cl)||99999)+(Number(pair.p[1].cl)||99999);
     UI.editPair=null;save();render();
   });
-  q('[data-win]',el=>el.onclick=()=>{clearTimeout(winTimer);winTimer=setTimeout(()=>{const id=el.dataset.win,p=el.dataset.pid;const set=S.draw.winners[id]!==p;S.draw.winners[id]=set?p:'';if(set)S.draw.started[id]=1;save();render()},260)});
+  q('[data-win]',el=>el.onclick=()=>{clearTimeout(winTimer);winTimer=setTimeout(()=>{const id=el.dataset.win,p=el.dataset.pid;const set=S.draw.winners[id]!==p;S.draw.winners[id]=set?p:'';if(set)S.draw.started[id]=1;save();render();if(set)askScore(id,p)},260)});
   q('[data-score]',el=>el.onchange=()=>{
     const id=el.dataset.score,D=S.draw,{sets,txt}=parseScore(el.value);
     D.scores[id]=txt;const m=model().M[id],w=autoWin(sets);
