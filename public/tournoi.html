@@ -189,6 +189,20 @@ input.hm{width:90px}
   .head-in{padding:24px 20px 0} main{padding:20px 12px 50px} section.card{padding:16px}
   .pair-conv{grid-template-columns:1fr} .pair-conv .acts{justify-content:flex-start}
 }
+#pres{position:fixed;inset:0;z-index:1500;background:var(--bg,#EEF1F5);display:flex;flex-direction:column;overflow:hidden}
+#pres .pbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 14px;background:var(--court);color:#fff}
+#pres .ptitle{font-size:20px}
+#pres .pviews{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+#pres .pact{display:flex;gap:6px}
+#pres .pv{font:inherit;font-size:14px;font-weight:600;padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.5);background:transparent;color:#fff;cursor:pointer}
+#pres .pv.on{background:#fff;color:var(--court)}
+#pres .pstage{flex:1;min-height:0;position:relative;overflow:hidden}
+#pres .pwrap{position:absolute;left:0;top:0}
+#pres .bracket{overflow:visible;padding:0}
+#pres .round{min-width:260px;flex:0 0 260px}
+#pres .subtab{margin:0}
+#pres .side{height:auto!important;min-height:36px}
+#pres .side .nm{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.2}
 @media (max-width:640px){
   .round{min-width:270px;flex:1 0 270px}
   .side{height:auto!important;min-height:38px;font-size:15px;padding:6px 8px}
@@ -582,13 +596,87 @@ function rankTied(g,ms,pw){
     out.push(...sub);i=j}
   return out;
 }
+// Zone réellement visible quand la page est dans un iframe très haut (défilement géré par l'application parente)
+function visRect(){
+  try{
+    if(document.fullscreenElement)return null;
+    const fe=window.frameElement;if(!fe)return null;
+    const r=fe.getBoundingClientRect(),P=window.parent,h=P.document.querySelector('header');
+    const hb=h?h.getBoundingClientRect().bottom:0;
+    const top=Math.max(0,hb-r.top),bottom=Math.min(r.height,P.innerHeight-r.top);
+    return{top,height:Math.max(240,bottom-top)};
+  }catch(e){return null}
+}
+function placeOverlay(el){
+  const put=()=>{
+    if(!el.isConnected){try{window.parent.removeEventListener('scroll',put);window.parent.removeEventListener('resize',put)}catch(e){}return}
+    const v=visRect();
+    if(v){el.style.position='absolute';el.style.left='0';el.style.right='0';el.style.bottom='auto';el.style.top=v.top+'px';el.style.height=v.height+'px'}
+    else{el.style.position='fixed';el.style.inset='0';el.style.height='auto'}
+    if(el.id==='pres')fitPres();
+  };
+  put();
+  try{if(window.frameElement){window.parent.addEventListener('scroll',put,{passive:true});window.parent.addEventListener('resize',put)}}catch(e){}
+}
+// Mode présentation : tableau entier mis à l'échelle de l'écran, modifiable (vainqueurs et scores)
+function presViews(Mo){
+  const [main,...cls]=Mo.tabs;
+  const v=[{k:'all',l:'Tout le tournoi'}];
+  if(Mo.stand.length)v.push({k:'pools',l:'Poules'});
+  v.push({k:'main',l:'Tableau final'});
+  cls.filter(t=>t.triangular?t.matches.length>0:t.rounds.some(r=>r.matches.some(m=>!m.bye))).forEach((t,i)=>v.push({k:'c'+(Mo.tabs.indexOf(t)),l:tabTitle(t)}));
+  return v;
+}
+function presHTML(Mo,k){
+  if(k==='all'){
+    const [main,...cls]=Mo.tabs;
+    const sh=cls.filter(t=>t.triangular?t.matches.length>0:t.rounds.some(r=>r.matches.some(m=>!m.bye)));
+    const pools=Mo.stand.length?`<div class="pools" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));width:640px">${Mo.stand.map((st,i)=>poolBlock(Mo,st,i)).join('')}</div>`:'';
+    return`<div style="display:flex;gap:40px;align-items:flex-start"><div>${tabBlock(Mo,main,true)}</div>${sh.length||pools?`<div class="pleft" style="display:flex;flex-direction:column;gap:18px">${pools}${sh.map(t=>tabBlock(Mo,t,true)).join('')}</div>`:''}</div>`;
+  }
+  if(k==='pools')return`<div class="pools" style="width:1100px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">${Mo.stand.map((st,i)=>poolBlock(Mo,st,i)).join('')}</div>`;
+  if(k==='main')return tabBlock(Mo,Mo.tabs[0],true);
+  const t=Mo.tabs[+k.slice(1)];return t?tabBlock(Mo,t,true):'';
+}
+function presRender(){
+  let ov=document.getElementById('pres');
+  if(!UI.pres){if(ov){if(document.fullscreenElement===ov)document.exitFullscreen().catch(()=>{});ov.remove()}return}
+  const Mo=model(),views=presViews(Mo);
+  if(!views.some(v=>v.k===UI.pres))UI.pres=views[0].k;
+  if(!ov){
+    ov=document.createElement('div');ov.id='pres';ov.className='noprint';
+    ov.innerHTML='<div class="pbar"></div><div class="pstage"><div class="pwrap"><div class="pcontent"></div></div></div>';
+    document.body.appendChild(ov);placeOverlay(ov);
+  }
+  const fs=!!document.fullscreenElement;
+  ov.querySelector('.pbar').innerHTML=`<strong class="ptitle">${esc(S.settings.name||'Tournoi')} — ${esc(dShort(S.settings.date))}</strong>
+    <span class="pviews">${views.map(v=>`<button class="pv ${v.k===UI.pres?'on':''}" data-pv="${v.k}">${v.l}</button>`).join('')}</span>
+    <span class="pact"><button class="pv" id="pFs">${fs?'Quitter le plein écran':'Plein écran'}</button><button class="pv close" id="pClose">Fermer ✕</button></span>`;
+  ov.querySelector('.pcontent').innerHTML=presHTML(Mo,UI.pres);
+  ov.querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>{UI.pres=b.dataset.pv;render()});
+  ov.querySelector('#pClose').onclick=()=>{UI.pres=null;render()};
+  ov.querySelector('#pFs').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});else if(ov.requestFullscreen)ov.requestFullscreen().catch(()=>{UI.err='Plein écran indisponible ici : la vue occupe déjà tout l\'écran visible.';})};
+  fitPres();
+}
+function fitPres(){
+  const ov=document.getElementById('pres');if(!ov)return;
+  const st=ov.querySelector('.pstage'),wr=ov.querySelector('.pwrap'),c=ov.querySelector('.pcontent');if(!st||!c)return;
+  wr.style.transform='none';c.style.width='max-content';
+  const aw=st.clientWidth-16,ah=st.clientHeight-16,w=c.scrollWidth,h=c.scrollHeight;
+  if(!w||!h||aw<50||ah<50)return;
+  const sc=Math.min(aw/w,ah/h,1.8);
+  wr.style.width=w+'px';wr.style.transformOrigin='top left';
+  wr.style.transform=`translate(${Math.max(0,(aw-w*sc)/2)+8}px,${Math.max(0,(ah-h*sc)/2)+8}px) scale(${sc})`;
+}
+window.addEventListener('resize',()=>{if(UI.pres){const ov=document.getElementById('pres');if(ov){const v=visRect();if(!v){ov.style.position='fixed';ov.style.inset='0';ov.style.height='auto'}fitPres()}}});
+document.addEventListener('fullscreenchange',()=>{if(UI.pres){const ov=document.getElementById('pres');if(ov){if(!document.fullscreenElement)placeOverlay(ov);render()}}});
 // Fenêtre de saisie du score après le choix d'un vainqueur
 function askScore(id,winPid){
   const D=S.draw,Mo=model(),m=Mo.M[id];if(!m||m.forfeit||!m.a||!m.b)return;
   const cur=D.scores[id];if(Array.isArray(cur)?cur.some(v=>v&&(v[0]!==''||v[1]!=='')):String(cur||'').trim())return;
   const F=fmt(),nm=pid=>esc(label(byId(pid)));
   const ov=document.createElement('div');ov.className='noprint';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:14px';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:14px';
   const inp=(k,si)=>`<input inputmode="numeric" data-k="${k}" data-si="${si}" aria-label="${F.sets[k]==='TB'?'Super tie-break':'Set '+(k+1)}" style="width:64px;box-sizing:border-box;text-align:center;font-size:20px;padding:8px 4px;color:var(--ink);background:var(--bg)">`;
   ov.innerHTML=`<div style="max-width:420px;width:100%;max-height:92vh;overflow:auto;box-sizing:border-box;background:var(--surface,#fff);color:var(--ink,#16202C);border-radius:12px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.35)">
     <h3 style="margin:0 0 4px;color:var(--court)">Score du match M${m.num}</h3>
@@ -598,7 +686,7 @@ function askScore(id,winPid){
     <div class="err" style="color:var(--danger);font-size:13px;min-height:18px"></div>
     <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end"><button class="btn ghost" data-act="skip">Passer</button><button class="btn" data-act="ok">Enregistrer</button></div>
   </div>`;
-  document.body.appendChild(ov);
+  (document.fullscreenElement||document.body).appendChild(ov);placeOverlay(ov);
   const first=ov.querySelector('input');if(first)first.focus();
   const close=()=>ov.remove();
   ov.onclick=e=>{if(e.target===ov)close()};
@@ -1002,6 +1090,7 @@ function render(){
   nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;UI.redraw=UI.reset=0;save();render()});
   const flash=(UI.err?`<div class="msg err">${esc(UI.err)}</div>`:'')+(UI.ok?`<div class="msg">${esc(UI.ok)}</div>`:'');UI.err=UI.ok='';
   document.getElementById('app').innerHTML=flash+({import:vImport,paires:vPaires,tableau:vTableau,planning:vPlanning,convoc:vConvoc})[S.tab]();
+  presRender();
   bind();
   postHeight();
 }
@@ -1224,7 +1313,7 @@ function vTableau(){
       <span class="lg-chip started">Match en cours</span>
       <span class="lg-chip next">Prochain match</span>
     </div>
-    <button class="btn" id="pdfBtn">Extraire en PDF</button>
+    <button class="btn ghost" id="presBtn">Présentation</button> <button class="btn" id="pdfBtn">Extraire en PDF</button>
   </div>
   ${Mo.stand.length?`<h2 class="sect" style="font-size:30px;margin:6px 0 14px">Poules</h2><section class="card"><div class="pools">${Mo.stand.map((st,i)=>poolBlock(Mo,st,i)).join('')}</div></section>`:''}
   <div id="tableauPrincipal">${tabBlock(Mo,main)}</div>
@@ -1335,6 +1424,7 @@ function message(Mo,p,k,m,ch){
 
 function bind(){
   const q=(s,f)=>document.querySelectorAll(s).forEach(f);
+  const prb=document.getElementById('presBtn');if(prb)prb.onclick=()=>{UI.pres='all';render();const ov=document.getElementById('pres');if(ov&&ov.requestFullscreen)ov.requestFullscreen().catch(()=>{})};
   q('[data-set]',el=>el.onchange=()=>{const k=el.dataset.set;let v=el.type==='number'?Number(el.value):el.value;
     if(k==='start'){const t=parseHM(v);if(t==null){UI.err='Heure invalide. Exemple : 9h00';render();return}v=toHM(t)}
     S.settings[k]=v;save();render()});
