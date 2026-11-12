@@ -5293,7 +5293,7 @@ function TournoiTab() {
   return (
     <div style={{ width: "min(97vw, 2000px)", position: "relative", left: "50%", transform: "translateX(-50%)" }}>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <iframe src="/tournoi.html" title="Tournoi padel" scrolling="no" allow="downloads" style={{ width: "100%", height: h + "px", border: "none", display: "block" }} />
+        <iframe src="/tournoi.html" title="Tournoi padel" scrolling="no" allow="downloads; fullscreen" allowFullScreen style={{ width: "100%", height: h + "px", border: "none", display: "block" }} />
       </div>
     </div>
   );
