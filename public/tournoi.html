@@ -672,7 +672,7 @@ window.addEventListener('resize',()=>{if(UI.pres){const ov=document.getElementBy
 document.addEventListener('fullscreenchange',()=>{if(UI.pres){const ov=document.getElementById('pres');if(ov){if(!document.fullscreenElement)placeOverlay(ov);render()}}});
 // Fenêtre de saisie du score après le choix d'un vainqueur
 function askScore(id,winPid){
-  const D=S.draw,Mo=model(),m=Mo.M[id];if(!m||m.forfeit||!m.a||!m.b)return;
+  const D=S.draw,Mo=model(),m=Mo.M[id];if(!m||m.forfeit||!(m.isPool||m.triGroup)||!m.a||!m.b)return;
   const cur=D.scores[id];if(Array.isArray(cur)?cur.some(v=>v&&(v[0]!==''||v[1]!=='')):String(cur||'').trim())return;
   const F=fmt(),nm=pid=>esc(label(byId(pid)));
   const ov=document.createElement('div');ov.className='noprint';
@@ -1189,6 +1189,20 @@ function vPaires(){
           </div>
         </td></tr>`:''}`}).join('')}</tbody>
     </table></div>
+    <div class="noprint" style="margin-top:12px">
+    ${UI.addPair?`<div class="row" style="gap:20px;flex-wrap:wrap;align-items:flex-start">
+      ${[0,1].map(k=>`<div style="min-width:200px"><div class="muted" style="font-size:12px;margin-bottom:6px;font-weight:700">Joueur ${k+1}</div>
+        <label class="f">Nom<input data-np="${k}|nom"></label><label class="f">Prénom<input data-np="${k}|prenom"></label>
+        <label class="f">Téléphone<input data-np="${k}|tel"></label><label class="f">Club<input data-np="${k}|club"></label>
+        <label class="f">Classement<input type="number" data-np="${k}|cl"></label></div>`).join('')}
+      <div style="min-width:160px"><div class="muted" style="font-size:12px;margin-bottom:6px;font-weight:700">Paire</div>
+        <label class="f">Poids (facultatif)<input type="number" data-np="poids"></label>
+        <p class="help" style="margin-top:6px">Sans poids, la somme des deux classements est utilisée.</p></div>
+    </div>
+    ${UI.addErr?`<div class="msg err" style="margin-top:8px">${esc(UI.addErr)}</div>`:''}
+    <div class="row" style="margin-top:8px"><button class="btn" id="addPairSave">Ajouter la paire</button><button class="btn ghost" id="addPairCancel">Annuler</button></div>`
+    :`<button class="btn ghost" id="addPairBtn">+ Ajouter une paire</button>`}
+    </div>
   </section>
   <section class="card noprint">
     <h2>Tirage au sort</h2>
@@ -1227,7 +1241,7 @@ function matchBox(Mo,m,showBye){
   return`<div class="match ${stateClass}">
     <div class="mmain">
     <div class="meta"><span class="mnum"><input type="checkbox" class="noprint" data-started="${m.id}" ${started?'checked':''} aria-label="M${m.num} commencé">M${m.num}</span><span class="when">
-      <select data-court="${m.id}" aria-label="Terrain M${m.num}">${Array.from({length:C},(_,i)=>`<option value="${i+1}" ${m.court===i+1?'selected':''}>T${i+1}</option>`).join('')}</select>
+      <select data-court="${m.id}" aria-label="Terrain M${m.num}">${Array.from({length:C},(_,i)=>`<option value="${i+1}" ${m.court===i+1?'selected':''}>Terrain ${i+1}</option>`).join('')}</select>
       ${timeSelect(m,Mo.slots)}</span></div>
     ${['a','b'].map((s,si)=>{const id=m[s];return`<div class="siderow"><button class="side ${m.winner&&m.winner===id?'win':''}" ${can?`data-win="${m.id}"`:'aria-disabled="true" tabindex="-1"'} ${id?`data-pid="${id}" title="${esc(label(byId(id)))}"`:''}><span class="nm">${id?seedNo(id):''}${sideLabel(Mo.M,m,s)}</span></button>${F.sets.map((_,ki)=>`<input class="score-side" inputmode="numeric" ${can?`data-sc="${m.id}|${ki}|${si}" value="${esc(scVal(scores,ki,si))}"`:'disabled'} aria-label="M${m.num} set ${ki+1} ${s==='a'?'A':'B'}">`).join('')}</div>`}).join('')}
     </div>
@@ -1433,6 +1447,20 @@ function bind(){
   q('[data-out]',el=>el.onchange=()=>{if(el.checked)delete S.out[el.dataset.out];else S.out[el.dataset.out]=1;save();render()});
   q('[data-confirmed]',el=>el.onchange=()=>{if(el.checked)S.confirmed[el.dataset.confirmed]=1;else delete S.confirmed[el.dataset.confirmed];save();render()});
   q('[data-paid]',el=>el.onchange=()=>{if(el.checked)S.paid[el.dataset.paid]=1;else delete S.paid[el.dataset.paid];save();render()});
+  const apb=document.getElementById('addPairBtn');if(apb)apb.onclick=()=>{UI.addPair=1;UI.addErr='';render()};
+  const apc=document.getElementById('addPairCancel');if(apc)apc.onclick=()=>{UI.addPair=0;UI.addErr='';render()};
+  const aps=document.getElementById('addPairSave');if(aps)aps.onclick=()=>{
+    const g=k=>{const o={};document.querySelectorAll(`[data-np^="${k}|"]`).forEach(i=>o[i.dataset.np.split('|')[1]]=i.value.trim());return{nom:(o.nom||'').toUpperCase(),prenom:cap(o.prenom||''),tel:normTel(o.tel||''),club:o.club||'',cl:o.cl?Number(o.cl):null,lic:''}};
+    const p=[g(0),g(1)];
+    if(!p[0].nom||!p[1].nom){UI.addErr='Renseignez au moins le nom des deux joueurs.';render();return}
+    const pe=document.querySelector('[data-np="poids"]');
+    const poids=Number(pe&&pe.value)||((p[0].cl||99999)+(p[1].cl||99999));
+    const pos=S.all.reduce((m,x)=>Math.max(m,Number(x.pos)||0),0)+1;
+    S.all.push({id:'x'+Date.now().toString(36),event:S.event,pos,poids,p});
+    UI.addPair=0;UI.addErr='';
+    UI.ok=S.draw?'Paire ajoutée. Pour l\'intégrer au tableau, refaites le tirage (les résultats saisis seront effacés).':'Paire ajoutée.';
+    save();render();
+  };
   q('[data-editpair]',el=>el.onclick=()=>{UI.editPair=UI.editPair===el.dataset.editpair?null:el.dataset.editpair;render()});
   q('[data-canceledit]',el=>el.onclick=()=>{UI.editPair=null;render()});
   q('[data-savepair]',el=>el.onclick=()=>{
