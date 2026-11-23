@@ -350,6 +350,62 @@ const SUPABASE_URL='https://sjqtjhsaljwrstquqnli.supabase.co';
 const SUPABASE_KEY='sb_publishable_5hSol31UR_jpvwYRIc4Cjg_TFulzedg';
 const CID=Math.random().toString(36).slice(2);let syncTimer=null,pendingRemote=null,SYNC='local',lastRemoteAt=0;
 const shared=()=>{const o=Object.assign({},S);delete o.tab;delete o._err;return o};
+/* Fusion à 3 voies : on applique sur la version en ligne uniquement ce que CET appareil a modifié depuis la dernière synchro */
+const isObj=v=>v&&typeof v==='object'&&!Array.isArray(v);
+const jeq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function merge3(b,l,r){
+  if(isObj(l)&&isObj(r)){
+    const bb=isObj(b)?b:{},out={};
+    new Set([...Object.keys(l),...Object.keys(r),...Object.keys(bb)]).forEach(k=>{
+      const lv=l[k],rv=r[k],bv=bb[k];let v;
+      if(jeq(lv,bv))v=rv;else if(jeq(rv,bv))v=lv;else if(isObj(lv)&&isObj(rv))v=merge3(bv,lv,rv);else v=lv;
+      if(v!==undefined)out[k]=v;
+    });
+    return out;
+  }
+  return jeq(l,b)?r:l;
+}
+const baseKey=id=>'tbase:'+id,BASEC={};
+function baseGet(id=CUR){if(BASEC[id]!==undefined)return BASEC[id];try{BASEC[id]=JSON.parse(localStorage.getItem(baseKey(id)))}catch(e){BASEC[id]=null}return BASEC[id]}
+function baseSet(o,id=CUR){const j=JSON.stringify(o);BASEC[id]=JSON.parse(j);try{localStorage.setItem(baseKey(id),j)}catch(e){}}
+function adopt(m){
+  const tab=S.tab;S=Object.assign(fresh(),m);S.settings=Object.assign(fresh().settings,m.settings||{});S.tab=tab;
+  if(!S.confirmed)S.confirmed={};if(!S.paid)S.paid={};if(S.draw&&!S.draw.started)S.draw.started={};
+  if(!S.all.length&&S.tab!=='import')S.tab='import';if(!S.draw&&(S.tab==='tableau'||S.tab==='convoc'))S.tab='paires';
+}
+function refreshUI(){
+  const a=document.activeElement;
+  if(a&&a.closest&&a.closest('#app')&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)){pendingRemote=true;return}
+  render();
+}
+/* Versions de secours : une copie datée toutes les ~2 min pendant les modifications (24 dernières) */
+let LASTSNAP=0,snapTimer=null;
+async function snapshot(id,stateStr,force){
+  const now=Date.now();
+  if(!force&&now-LASTSNAP<120000){clearTimeout(snapTimer);snapTimer=setTimeout(()=>snapshot(id,stateStr,true),121000-(now-LASTSNAP));return}
+  LASTSNAP=now;
+  try{
+    let h=await getKey('tournoi-hist-'+id);if(!Array.isArray(h))h=[];
+    if(h.length&&h[h.length-1].state===stateStr)return;
+    h.push({at:now,state:stateStr});
+    await putKey('tournoi-hist-'+id,h.slice(-24));
+  }catch(e){}
+}
+async function loadHist(){
+  UI.histLoading=1;render();
+  try{
+    const h=await getKey('tournoi-hist-'+CUR);
+    UI.hist=(Array.isArray(h)?h:[]).slice().reverse().map(x=>{let st=null;try{st=JSON.parse(x.state)}catch(e){}
+      return{at:x.at,state:x.state,nb:st&&st.all?st.all.length:0,res:st&&st.draw&&st.draw.winners?Object.values(st.draw.winners).filter(Boolean).length:0}});
+  }catch(e){UI.hist=[]}
+  UI.histLoading=0;UI.histLoaded=1;render();
+}
+function restoreHist(at){
+  const x=(UI.hist||[]).find(v=>String(v.at)===String(at));if(!x)return;
+  let st;try{st=JSON.parse(x.state)}catch(e){return}
+  migSet(st.settings);adopt(st);UI.hist=null;UI.histLoaded=0;UI.ok='Version restaurée.';
+  save();render();
+}
 function saveLocal(){try{localStorage.setItem(lsKey(CUR),JSON.stringify(S))}catch(e){}}
 function save(){saveLocal();clearTimeout(syncTimer);syncTimer=setTimeout(pushRemote,400)}
 const HDR={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY};
@@ -407,10 +463,21 @@ async function pushRemote(){
   const id=CUR;
   if(await dropIfRemoved())return;
   try{
-    const value={state:JSON.stringify(shared()),by:CID,at:Date.now()};
-    await putKey(stateKey(id),value);markSeen(id);
+    let mine=shared(),merged=false;
+    let rd=null;try{rd=await fetchRemote(id)}catch(e){}
+    if(id!==CUR)return;
+    if(rd&&rd.by!==CID&&rd.at>lastRemoteAt){
+      try{
+        const rs=JSON.parse(rd.state);migSet(rs.settings);
+        adopt(merge3(baseGet(id)||{},mine,rs));mine=shared();lastRemoteAt=rd.at;saveLocal();merged=true;
+      }catch(e){}
+    }
+    const value={state:JSON.stringify(mine),by:CID,at:Date.now()};
+    await putKey(stateKey(id),value);markSeen(id);baseSet(mine,id);
     if(id===CUR)lastRemoteAt=value.at;
     setSync('ok');
+    snapshot(id,value.state);
+    if(merged&&id===CUR)refreshUI();
     if(id===CUR&&syncIndexEntry())await updateIndex(()=>{});
   }catch(e){setSync('err')}
 }
@@ -539,13 +606,12 @@ function setSync(v){SYNC=v;const el=document.getElementById('sync');if(!el)retur
 function applyRemote(d){
   let st;try{st=JSON.parse(d.state)}catch(e){return}
   migSet(st.settings);
-  const tab=S.tab;S=Object.assign(fresh(),st);S.settings=Object.assign(fresh().settings,st.settings||{});S.tab=tab;
-  if(!S.confirmed)S.confirmed={};if(!S.paid)S.paid={};if(S.draw&&!S.draw.started)S.draw.started={};
-  if(!S.all.length&&S.tab!=='import')S.tab='import';if(!S.draw&&(S.tab==='tableau'||S.tab==='convoc'))S.tab='paires';
-  saveLocal();
-  const a=document.activeElement;
-  if(a&&a.closest&&a.closest('#app')&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)){pendingRemote=true;return}
-  render();
+  const local=shared(),base=baseGet();
+  let m=st;
+  if(base&&!jeq(local,base))m=merge3(base,local,st);
+  adopt(m);baseSet(st);saveLocal();
+  if(!jeq(shared(),st))save();
+  refreshUI();
 }
 document.addEventListener('focusout',()=>setTimeout(()=>{if(pendingRemote&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))){pendingRemote=false;render()}},50));
 async function pollRemote(){
@@ -1130,6 +1196,14 @@ function vImport(){
           ${UI.archiveOpen===a.key?`<ol class="places">${(a.places||[]).map(p=>`<li><span class="pl">${nth(p.place)}</span><span>${p.label?esc(p.label):'<span class="muted">—</span>'}</span></li>`).join('')||'<li class="muted">Pas de classement disponible.</li>'}</ol>`:''}
         </div>`).join('')}</div>`}
   </section>
+  ${S.all.length?`<section class="card noprint">
+    <h2>Versions de secours</h2>
+    <p class="help">L'application enregistre automatiquement une copie datée de ce tournoi pendant les saisies. En cas de problème, restaurez une version antérieure.</p>
+    ${!UI.histLoaded?`<button class="btn ghost" id="loadHist">${UI.histLoading?'Chargement…':'Voir les versions enregistrées'}</button>`:
+      (UI.hist||[]).length===0?`<p class="help">Aucune version enregistrée pour l'instant.</p>`:
+      `<div class="archives">${UI.hist.map(h=>`<div class="arc"><div class="arc-h"><strong>${new Date(h.at).toLocaleString('fr-FR',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</strong> <span class="muted">· ${h.nb} paires · ${h.res} vainqueur${h.res>1?'s':''} saisi${h.res>1?'s':''}</span>
+        <button class="btn ghost" data-histrestore="${h.at}" style="margin-left:8px">Restaurer</button></div></div>`).join('')}</div>`}
+  </section>`:''}
   ${TLIST.length>1?`<section class="card noprint"><h2>Supprimer ce tournoi</h2><p class="help">Retire ce tournoi de la liste sans l'archiver. Les autres tournois ne sont pas touchés.</p><button class="btn danger" id="delTourn">${UI.delTourn?'Oui, supprimer ce tournoi':'Supprimer ce tournoi'}</button></section>`:''}
   ${S.all.length?`<section class="card noprint"><h2>Recommencer</h2><p class="help">Efface le tournoi enregistré dans ce navigateur.</p><button class="btn danger" id="reset">${UI.reset?'Oui, effacer le tournoi':'Effacer le tournoi'}</button></section>`:''}`;
 }
@@ -1553,6 +1627,8 @@ function bind(){
   const rs=document.getElementById('reset');if(rs)rs.onclick=()=>{if(!UI.reset){UI.reset=1;render();return}UI.reset=0;const keep=S.settings;S=fresh();S.settings=keep;save();render()};
   const ar=document.getElementById('archive');if(ar)ar.onclick=()=>{if(!UI.archive){UI.archive=1;render();return}UI.archive=0;archiveTournament()};
   const dt=document.getElementById('delTourn');if(dt)dt.onclick=()=>{if(!UI.delTourn){UI.delTourn=1;render();return}UI.delTourn=0;removeCurrentTournament('Tournoi supprimé.')};
+  const lh=document.getElementById('loadHist');if(lh)lh.onclick=()=>loadHist();
+  q('[data-histrestore]',el=>el.onclick=()=>restoreHist(el.dataset.histrestore));
   const la=document.getElementById('loadArchives');if(la)la.onclick=()=>loadArchives();
   q('[data-arcview]',el=>el.onclick=()=>{UI.archiveOpen=UI.archiveOpen===el.dataset.arcview?null:el.dataset.arcview;render()});
   const f=document.getElementById('file');if(f)f.onchange=()=>f.files[0]&&importFile(f.files[0]);
